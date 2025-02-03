@@ -123,4 +123,4 @@ Example
 
     core.fit(max_epochs=50)
 
-For more examples, refer to the GitHub repository's `example folder <https://github.com/ML-KULeuven/congrads/examples>`_ or the `notebooks folder <https://github.com/ML-KULeuven/congrads/notebooks>`_ for more examples.
+For more examples, refer to the GitHub repository's `example folder <https://github.com/ML-KULeuven/congrads/tree/main/examples>`_ or the `notebooks folder <https://github.com/ML-KULeuven/congrads/tree/main/notebooks>`_ for more examples.

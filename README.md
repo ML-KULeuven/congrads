@@ -1,5 +1,5 @@
 <div align="center">
-	<img src="docs/_static/congrads_export.png" height="200">
+	<img src="https://github.com/ML-KULeuven/congrads/blob/main/docs/_static/congrads_export.png?raw=true" height="200">
 	<p>
 	<b>Incorporate constraints into neural network training for more reliable and robust models.</b>
 	</p>
@@ -56,7 +56,7 @@ Please read the documentation at https://congrads.readthedocs.io/en/latest/ to g
 ### 3. **Basic Usage**
 
 Below, a basic example can be found that illustrates how to work with the Congrads toolbox.
-For additional examples, refer to the [examples](https://github.com/ML-KULeuven/congrads/examples) and [notebooks](https://github.com/ML-KULeuven/congrads/notebooks) folders in the repository.
+For additional examples, refer to the [examples](https://github.com/ML-KULeuven/congrads/tree/main/examples) and [notebooks](https://github.com/ML-KULeuven/congrads/tree/main/notebooks) folders in the repository.
 
 #### 1. First, select the device to run your code on with.
 
