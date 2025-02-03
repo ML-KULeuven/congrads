@@ -1,0 +1,210 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to Congrads’ documentation! &mdash; Congrads 1.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+    <link rel="shortcut icon" href="_static/congrads_favicon.png"/>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=292eb321"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Quick Start Guide" href="start.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #cc5353" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            Congrads
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Home</a></li>
+<li class="toctree-l1"><a class="reference internal" href="start.html">Quick Start Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Core concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #cc5353" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">Congrads</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Welcome to Congrads’ documentation!</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="welcome-to-congrads-documentation">
+<h1>Welcome to Congrads’ documentation!<a class="headerlink" href="#welcome-to-congrads-documentation" title="Link to this heading"></a></h1>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<a class="reference internal image-reference" href="_images/congrads_export.svg"><img alt="_images/congrads_export.svg" class="align-center" src="_images/congrads_export.svg" style="width: 400px;" />
+</a>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<p>Congrads is a Python toolbox that brings <strong>constraint-guided gradient descent</strong> capabilities
+to your machine learning projects. Built with seamless integration into PyTorch,
+Congrads empowers you to enhance the training and optimization process by
+<em>incorporating constraints</em> into your training pipeline.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The Congrads toolbox is currently <strong>under active development</strong>. Feedback, issue reports and pull requests are appreciated to further improve the toolbox and suit your needs.</p>
+</div>
+<section id="why-should-i-use-congrads">
+<h2>Why should I use Congrads?<a class="headerlink" href="#why-should-i-use-congrads" title="Link to this heading"></a></h2>
+<p>The <strong>Congrads</strong> toolbox provides an easy-to-use interface while remaining <strong>highly flexible and modular</strong>.
+You can seamlessly adapt your existing projects to integrate constraints into your network while maintaining performance and stability.</p>
+<p>Unlike traditional methods that enforce constraints through post-processing or penalty (regularization) functions, Congrads takes a different approach.
+The algorithm does not interfere with the update step if the defined constraints are satisfied, ensuring that training progresses optimally.
+However, if constraints are violated, Congrads adjusts the optimization process dynamically to steer the solution back into
+the feasible region, where all constraints are satisfied, helping maintain compliance without sacrificing convergence speed.</p>
+<p>Possible applications include the following:</p>
+<ul class="simple">
+<li><p>Training models that obey real-world physical and operational limits.</p></li>
+<li><p>Embedding constraints that respect domain-specific restrictions.</p></li>
+<li><p>Integrate your own governing equations into the training of a deep learning model</p></li>
+</ul>
+</section>
+<section id="example-problem">
+<h2>Example problem<a class="headerlink" href="#example-problem" title="Link to this heading"></a></h2>
+<img alt="_images/convergence_illustration.gif" class="align-center" src="_images/convergence_illustration.gif" />
+<p>The animation above illustrates a simple example that makes use of the CGGD algorithm.
+The objective here is to find the minimum of the function L, while enforcing that the solution must lay in certain intervals (marked in green), the so called feasible region.</p>
+<p>As can be seen in the animation, both the approach without constraints and the approach with regularization fail to find a solution that satisfies the constraints and converge to a local minimum.
+The CGGD algorithm on the other hand, does find an optimum that also satisfies the constraints.</p>
+<p>Our approach has some advantages:</p>
+<ul class="simple">
+<li><p>Using Congrads you will always converge to points where all the constraints are satisfied and you can’t get stuck in saddle points, local minima or maxima.</p></li>
+<li><p>This is in contrast to regularization approaches that can get stuck in points where not all constraints are satisfied or the loss is not minimal.</p></li>
+<li><p>Congrads uses no hyperparameters, which simplifies finding the optimal training settings.</p></li>
+</ul>
+</section>
+<section id="where-to-start">
+<h2>Where to start<a class="headerlink" href="#where-to-start" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="start.html#start"><span class="std std-ref">Quick-start guide</span></a></p></li>
+<li><p><a class="reference internal" href="concepts.html#concepts"><span class="std std-ref">Core concepts</span></a></p></li>
+<li><p><a class="reference internal" href="api.html#api"><span class="std std-ref">API documentation</span></a></p></li>
+</ul>
+</section>
+<section id="research">
+<h2>Research<a class="headerlink" href="#research" title="Link to this heading"></a></h2>
+<p>If you make use of this package or it’s concepts in your research, please consider citing the following papers.</p>
+<ul>
+<li><p>Van Baelen, Q., &amp; Karsmakers, P. (2023). <strong>Constraint guided gradient descent:
+Training with inequality constraints with applications in regression and semantic segmentation.</strong>
+Neurocomputing, 556, 126636. doi:10.1016/j.neucom.2023.126636</p>
+<p>[<a class="reference external" href="https://www.sciencedirect.com/science/article/abs/pii/S0925231223007592">pdf</a>, <a class="reference external" href="https://raw.githubusercontent.com/ML-KULeuven/congrads/main/docs/_static/VanBaelen2023.bib">bibtex</a>]</p>
+</li>
+</ul>
+</section>
+<section id="contents">
+<h2>Contents<a class="headerlink" href="#contents" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Home</a></li>
+<li class="toctree-l1"><a class="reference internal" href="start.html">Quick Start Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="start.html#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="start.html#requirements-and-concepts">Requirements and concepts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="start.html#example">Example</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Core concepts</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="concepts.html#datasets">Datasets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="concepts.html#networks">Networks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="concepts.html#descriptor">Descriptor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="concepts.html#constraints">Constraints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="concepts.html#metricmanager">MetricManager</a></li>
+<li class="toctree-l2"><a class="reference internal" href="concepts.html#congradscore">CongradsCore</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-congrads.checkpoints">Checkpoints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-congrads.constraints">Constraints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-congrads.core">Core</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-congrads.datasets">Datasets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-congrads.descriptor">Descriptor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-congrads.metrics">Metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-congrads.networks">Networks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-congrads.transformations">Transformations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-congrads.utils">Utils</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="start.html" class="btn btn-neutral float-right" title="Quick Start Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DTAI KU Leuven.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
