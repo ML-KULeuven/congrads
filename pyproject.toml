@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools_scm", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "congrads"
+dynamic = ["version"]
+description = "A toolbox for using Constraint Guided Gradient Descent when training neural networks."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Wout Rombouts", email = "wout.rombouts@kuleuven.be" },
+    { name = "Quinten Van Baelen", email = "quinten.vanbaelen@kuleuven.be" },
+    { name = "Peter Karsmakers", email = "peter.karsmakers@kuleuven.be" }
+]
+requires-python = ">= 3.9"
+dependencies = [
+    "numpy>=1.26.4",
+    "pandas>=2.2.2",
+    "torch>=2.5.0",
+    "torchvision>=0.20.0",
+    "tensorboard>=2.18.0",
+    "tqdm>=4.66.5",
+]
+
+[tool.setuptools.packages.find]
+include = ["congrads"]
+
+[tool.setuptools_scm]
