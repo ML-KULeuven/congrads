@@ -161,6 +161,20 @@ We welcome contributions to Congrads! Whether you want to report issues, suggest
 
 Congrads is licensed under the [The 3-Clause BSD License](LICENSE). We encourage companies that are interested in a collaboration for a specific topic to contact the authors for more information or to set up joint research projects.
 
+## Contacts
+
+Feel free to contact any of the below contact persons for more information or details about the project. Companies interested in a collaboration, or to set up joint research projects are also encouraged to get in touch with us.
+
+- Peter Karsmakers [ [email](mailto:peter.karsmakers@kuleuven.be) | [website](https://www.kuleuven.be/wieiswie/en/person/00047893) ]
+- Quinten Van Baelen [ [email](mailto:quinten.vanbaelen@kuleuven.be) | [website](https://www.kuleuven.be/wieiswie/en/person/00125540) ]
+
+## Contributors
+
+Below you find a list of people who contributed in making the toolbox. Feel free to contact them for any repository- or code-specific questions, suggestions or remarks.
+
+- Wout Rombouts [ [email](mailto:wout.rombouts@kuleuven.be) | [github profile](https://github.com/rombie18) ]
+- Quinten Van Baelen [ [email](mailto:quinten.vanbaelen@kuleuven.be) | [github profile](https://github.com/quinten-vb) ]
+
 ---
 
 Elevate your neural networks with Congrads! 🚀

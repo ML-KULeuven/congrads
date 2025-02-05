@@ -75,6 +75,35 @@ If you make use of this package or it's concepts in your research, please consid
 __ https://www.sciencedirect.com/science/article/abs/pii/S0925231223007592
 __ https://raw.githubusercontent.com/ML-KULeuven/congrads/main/docs/_static/VanBaelen2023.bib
 
+
+Contacts
+--------
+
+Feel free to contact any of the below contact persons for more information or details about the project. Companies interested in a collaboration, or to set up joint research projects are also encouraged to get in touch with us.
+
+- Peter Karsmakers [`email`__ | `website`__]
+- Quinten Van Baelen [`email`__ | `website`__]
+
+__ mailto:peter.karsmakers@kuleuven.be
+__ https://www.kuleuven.be/wieiswie/en/person/00047893
+__ mailto:quinten.vanbaelen@kuleuven.be
+__ https://www.kuleuven.be/wieiswie/en/person/00125540
+
+Contributors
+------------
+
+Below you find a list of people who contributed in making the toolbox. Feel free to contact them for any repository- or code-specific questions, suggestions or remarks.
+
+- Wout Rombouts [`email`__ | `github profile`__]
+- Quinten Van Baelen [`email`__ | `github profile`__]
+
+__ mailto:wout.rombouts@kuleuven.be
+__ https://github.com/rombie18
+__ mailto:quinten.vanbaelen@kuleuven.be
+__ https://github.com/quinten-vb
+
+---
+
 Contents
 --------
 
