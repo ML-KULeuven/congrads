@@ -94,8 +94,7 @@ class Constraint(ABC):
             defined in the `descriptor`.
 
     Note:
-        - If `rescale_factor <= 1`, a warning is issued, and the value is
-          adjusted to a positive value greater than 1.
+        - If `rescale_factor <= 1`, a warning is issued.
         - If `name` is not provided, a name is auto-generated,
           and a warning is logged.
 
@@ -120,7 +119,7 @@ class Constraint(ABC):
 
         # Type checking
         validate_iterable("neurons", neurons, str)
-        validate_type("name", name, (str, type(None)))
+        validate_type("name", name, str, allow_none=True)
         validate_type("monitor_only", monitor_only, bool)
         validate_type("rescale_factor", rescale_factor, Number)
 
@@ -132,12 +131,13 @@ class Constraint(ABC):
         # Perform checks
         if rescale_factor <= 1:
             warnings.warn(
-                "Rescale factor for constraint %s is <= 1. The network \
-                    will favor general loss over the constraint-adjusted loss. \
-                    Is this intended behavior? Normally, the loss should \
-                    always be larger than 1.",
-                name,
+                f"Rescale factor for constraint {name} is <= 1. The network "
+                "will favor general loss over the constraint-adjusted loss. "
+                "Is this intended behavior? Normally, the rescale factor "
+                "should always be larger than 1.",
             )
+        else:
+            self.rescale_factor = rescale_factor
 
         # If no constraint_name is set, generate one based
         # on the class name and a random suffix
@@ -149,31 +149,18 @@ class Constraint(ABC):
             )
             self.name = f"{self.__class__.__name__}_{random_suffix}"
             warnings.warn(
-                "Name for constraint is not set. Using %s.", self.name
+                f"Name for constraint is not set. Using {self.name}.",
             )
-
-        # If rescale factor is not larger than 1, warn user and adjust
-        if rescale_factor <= 1:
-            self.rescale_factor = abs(rescale_factor) + 1.5
-            warnings.warn(
-                "Rescale factor for constraint %s is < 1, adjusted value \
-                    %s to %s.",
-                name,
-                rescale_factor,
-                self.rescale_factor,
-            )
-        else:
-            self.rescale_factor = rescale_factor
 
         # Infer layers from descriptor and neurons
         self.layers = set()
         for neuron in self.neurons:
             if neuron not in self.descriptor.neuron_to_layer.keys():
                 raise ValueError(
-                    f'The neuron name {neuron} used with constraint \
-                        {self.name} is not defined in the descriptor. Please \
-                        add it to the correct layer using \
-                        descriptor.add("layer", ...).'
+                    f"The neuron name {neuron} used with constraint "
+                    f"{self.name} is not defined in the descriptor. Please "
+                    "add it to the correct layer using "
+                    "descriptor.add('layer', ...)."
                 )
 
             self.layers.add(self.descriptor.neuron_to_layer[neuron])
@@ -675,13 +662,13 @@ class SumConstraint(Constraint):
         # weight list dimensions, raise error
         if weights_left and (len(neuron_names_left) != len(weights_left)):
             raise ValueError(
-                "The dimensions of neuron_names_left don't match with the \
-                    dimensions of weights_left."
+                "The dimensions of neuron_names_left don't match with the "
+                "dimensions of weights_left."
             )
         if weights_right and (len(neuron_names_right) != len(weights_right)):
             raise ValueError(
-                "The dimensions of neuron_names_right don't match with the \
-                    dimensions of weights_right."
+                "The dimensions of neuron_names_right don't match with the "
+                "dimensions of weights_right."
             )
 
         # If weights are provided for summation, transform them to Tensors
