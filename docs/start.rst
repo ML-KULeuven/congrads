@@ -10,7 +10,7 @@ Finally, we continue with a step-by-step tutorial to build your first constraint
 Installation
 ------------
 
-Since Congrads is a Python toolbox, it requires Python to be installed to function. Congrads currently supports Python version 3.9 - 3.12.
+Since Congrads is a Python toolbox, it requires Python to be installed to function. Congrads currently supports Python version 3.11 - 3.13.
 Get the latest version of Python at https://www.python.org/downloads/.
 
 Congrads heavily relies on PyTorch as its main deep learning framework, leveraging its automatic differentiation and tensor computation capabilities to implement constraint-guided gradient descent.
@@ -21,6 +21,10 @@ Next, install the Congrads package. The recommended way to install the toolbox i
 
   pip install congrads
 
+You can also install Congrads together with extra packages required to run the examples:
+
+  pip install congrads[examples]
+
 This should automatically install all required dependencies for you.
 If you want to manually install all dependencies, Congrads depends on the following:
 
@@ -29,7 +33,7 @@ If you want to manually install all dependencies, Congrads depends on the follow
 * **Pandas** (install with ```pip install pandas```, or refer to `Panda's install guide <https://pandas.pydata.org/docs/getting_started/install.html>`_)
 * **Tqdm** (install with ```pip install tqdm```)
 * **Torchvision** (install with ```pip install torchvision```)
-* **Tensorboard** (install with ```pip install tensorboard```)
+* Optional: **Tensorboard** (install with ```pip install tensorboard```)
 
 Requirements and concepts
 -------------------------

@@ -1,10 +1,6 @@
-[build-system]
-requires = ["setuptools>=61.0", "setuptools_scm", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "congrads"
-dynamic = ["version"]
+version = "1.1.0"
 description = "A toolbox for using Constraint Guided Gradient Descent when training neural networks."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -13,17 +9,114 @@ authors = [
     { name = "Quinten Van Baelen", email = "quinten.vanbaelen@kuleuven.be" },
     { name = "Peter Karsmakers", email = "peter.karsmakers@kuleuven.be" }
 ]
-requires-python = ">= 3.9"
+requires-python = ">=3.11"
 dependencies = [
-    "numpy>=1.26.4",
-    "pandas>=2.2.2",
-    "torch>=2.5.0",
-    "torchvision>=0.20.0",
-    "tensorboard>=2.18.0",
-    "tqdm>=4.66.5",
+    "numpy>=1.24.0",
+    "pandas>=1.5.0",
+    "torch>=2.0.0",
+    "torchvision>=0.15.1",
+    "tqdm>=4.65.0",
 ]
 
-[tool.setuptools.packages.find]
-include = ["congrads"]
+[project.optional-dependencies]
+examples = [
+    "matplotlib>=3.7.0",
+    "tensorboard>=2.12.0",
+]
 
-[tool.setuptools_scm]
+[build-system]
+requires = ["uv_build>=0.8.13,<0.9.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.13.0",
+    "sphinx>=8.2.3",
+    "sphinx-rtd-theme>=3.0.2",
+    "tox>=4.30.2",
+    "twine>=6.2.0",
+]
+
+[tool.ruff]
+# Match Black-style defaults but with a longer line length
+line-length = 100
+indent-width = 4
+target-version = "py311"  # or "py312" if needed
+
+# Where Ruff runs (exclude cache, venvs, build dirs, etc.)
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    "__pypackages__",
+]
+
+# Which files to include
+include = ["pyproject.toml", "src/**/*.py", "tests/**/*.py"]
+
+[tool.ruff.lint]
+# Essentials + additional readability rules
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # import sorting
+    "B",   # bugbear
+    "UP",  # pyupgrade
+    "C4",  # comprehensions
+    "ISC", # implicit string concatenation
+    "D",   # docstring styling
+    "N",   # consistent naming
+]
+ignore = [
+    "E501", # line length (handled by formatter)
+]
+
+# Enable autofix for safe rules
+fixable = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D", "N"]
+
+[tool.ruff.format]
+quote-style = "double"               # enforce double quotes
+indent-style = "space"               # 4 spaces
+skip-magic-trailing-comma = false    # Black-compatible
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.tox]
+envlist = ["py{311,312,313}-{latest,minimum}"]
+
+[tool.tox.env_run_base]
+description = "Run tests with latest dependencies"
+deps = [
+    "pytest",
+    "pytest-cov"
+]
+commands = [
+    ["pytest", "--cov=src/congrads", "tests/"]
+]
+extras = [ "examples" ]
+
+[tool.tox.env.latest]
+description = "Run tests with latest dependencies"
+
+[tool.tox.env.minimum]
+description = "Run tests with minimum dependencies"
+deps = [
+    "-c constraints-min.txt",
+    "pytest",
+    "pytest-cov"
+]
+
+# Optional: ensure coverage is reported for all envs
+skip_missing_interpreters = true

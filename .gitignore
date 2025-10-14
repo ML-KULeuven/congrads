@@ -247,3 +247,4 @@ logs/
 checkpoints/
 plots/
 scripts/
+local/

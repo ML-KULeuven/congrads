@@ -7,7 +7,7 @@
 
 [![PyPi](https://img.shields.io/pypi/v/congrads.svg)](https://pypi.org/project/congrads)
 [![Read the Docs](https://img.shields.io/readthedocs/congrads/latest.svg?label=Read%20the%20Docs)](https://congrads.readthedocs.io)
-[![Python Version: 3.9+](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://pypi.org/project/congrads)
+[![Python Version: 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://pypi.org/project/congrads)
 [![Downloads](https://img.shields.io/pypi/dm/congrads.svg)](https://pypistats.org/packages/congrads)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
@@ -38,15 +38,21 @@ Next, install the Congrads toolbox. The recommended way to install it is to use 
 pip install congrads
 ```
 
+You can also install Congrads together with extra packages required to run the examples:
+
+```bash
+pip install congrads[examples]
+```
+
 This should automatically install all required dependencies for you. If you would like to install dependencies manually, Congrads depends on the following:
 
-- Python 3.9 - 3.12
+- Python 3.11 - 3.13
 - **PyTorch** (install with CUDA support for GPU training, refer to [PyTorch's getting started guide](https://pytorch.org/get-started/locally/))
 - **NumPy** (install with `pip install numpy`, or refer to [NumPy's install guide](https://numpy.org/install/).)
 - **Pandas** (install with `pip install pandas`, or refer to [Panda's install guide](https://pandas.pydata.org/docs/getting_started/install.html).)
 - **Tqdm** (install with `pip install tqdm`)
 - **Torchvision** (install with `pip install torchvision`)
-- **Tensorboard** (install with `pip install tensorboard`)
+- Optional: **Tensorboard** (install with `pip install tensorboard`)
 
 ### 2. **Core concepts**
 
@@ -140,11 +146,11 @@ core.fit(max_epochs=50)
 - **Improve Training Process**: Inject domain knowledge in the training stage, increasing learning efficiency.
 - **Physics-Informed Neural Networks (PINNs)**: Coming soon, Enforce physical laws as constraints in your models.
 
-## Roadmap
+## Planned changes / Roadmap
 
 - [ ] Add ODE/PDE constraints to support PINNs
+- [ ] Rework callback system
 - [ ] Add support for constraint parser that can interpret equations
-- [ ] Determine if it is feasible to add unit and or functional tests
 
 ## Research
 
