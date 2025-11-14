@@ -66,3 +66,37 @@ def test_select_method(descriptor):
     result = descriptor.select("tag1", batch_data)
     expected = torch.tensor([[1.0], [3.0]])
     assert torch.allclose(result, expected)
+
+
+def test_add_tag_with_none_index(descriptor):
+    descriptor.add("layer1", "tag_none", index=None, constant=False)
+
+    assert descriptor._tag_to_key["tag_none"] == "layer1"
+    assert descriptor._tag_to_index["tag_none"] is None
+
+    assert "layer1" in descriptor.variable_keys
+    assert "layer1" not in descriptor.constant_keys
+
+
+def test_location_with_none_index(descriptor):
+    descriptor.add("layer1", "tag_none", index=None)
+
+    layer, index = descriptor.location("tag_none")
+    assert layer == "layer1"
+    assert index is None
+
+
+def test_select_with_none_index(descriptor):
+    descriptor.add("layer1", "tag_none", index=None)
+
+    batch_data = {"layer1": torch.tensor([[1.0, 2.0], [3.0, 4.0]])}
+    result = descriptor.select("tag_none", batch_data)
+
+    expected = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
+    assert torch.allclose(result, expected)
+
+
+def test_duplicate_none_index_in_same_layer_raises(descriptor):
+    descriptor.add("layer1", "tag_a", index=None)
+    with pytest.raises(ValueError):
+        descriptor.add("layer1", "tag_b", index=None)

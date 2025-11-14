@@ -1,6 +1,6 @@
 [project]
 name = "congrads"
-version = "1.1.0"
+version = "1.1.1"
 description = "A toolbox for using Constraint Guided Gradient Descent when training neural networks."
 readme = "README.md"
 license = { file = "LICENSE" }

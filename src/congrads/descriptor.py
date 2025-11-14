@@ -122,7 +122,7 @@ class Descriptor:
         """
         return tag in self._tag_to_key and tag in self._tag_to_index
 
-    def location(self, tag: str) -> tuple[str, int]:
+    def location(self, tag: str) -> tuple[str, int | None]:
         """Get the key and index for a given tag.
 
         Looks up the mapping for a registered tag and returns the associated
@@ -132,16 +132,16 @@ class Descriptor:
             tag (str): The tag identifier. Must be registered.
 
         Returns:
-            tuple ((str, int)): A tuple containing:
+            tuple ((str, int | None)): A tuple containing:
                 - The key in the data dictionary which holds the data (str).
-                - The tensor index where the data is present (int).
+                - The tensor index where the data is present or None (int | None).
 
         Raises:
             ValueError: If the tag is not registered in the descriptor.
         """
         key = self._tag_to_key.get(tag)
         index = self._tag_to_index.get(tag)
-        if key is None or index is None:
+        if key is None:
             raise ValueError(f"Tag '{tag}' is not registered in descriptor.")
         return key, index
 
@@ -150,6 +150,7 @@ class Descriptor:
 
         Retrieves the key and index associated with a tag and selects
         the corresponding slice from the given prediction tensor.
+        Returns the full tensor if no index was specified when registering the tag.
 
         Args:
             tag (str): The tag identifier. Must be registered.
@@ -157,10 +158,12 @@ class Descriptor:
 
         Returns:
             Tensor: A tensor slice of shape ``(batch_size, 1)`` containing
-            the predictions for the specified tag.
+            the predictions for the specified tag, or the full tensor if no index was specified when registering the tag.
 
         Raises:
             ValueError: If the tag is not registered in the descriptor.
         """
         key, index = self.location(tag)
+        if index is None:
+            return data[key]
         return data[key][:, index : index + 1]
