@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from congrads.constraints import (
+from congrads.constraints.registry import (
     BinaryConstraint,
     Constraint,
     ImplicationConstraint,

@@ -178,7 +178,7 @@ wheels = [
 
 [[package]]
 name = "congrads"
-version = "1.1.2"
+version = "1.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },
@@ -210,7 +210,7 @@ requires-dist = [
     { name = "matplotlib", marker = "extra == 'examples'", specifier = ">=3.7.0" },
     { name = "numpy", specifier = ">=1.24.0" },
     { name = "pandas", specifier = ">=1.5.0" },
-    { name = "tensorboard", marker = "extra == 'examples'", specifier = ">=2.17.1" },
+    { name = "tensorboard", marker = "extra == 'examples'", specifier = ">=2.18.0" },
     { name = "torch", specifier = ">=2.0.0" },
     { name = "torchvision", specifier = ">=0.15.1" },
     { name = "tqdm", specifier = ">=4.65.0" },

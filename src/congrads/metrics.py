@@ -9,7 +9,7 @@ from collections.abc import Callable
 
 from torch import Tensor, cat, nanmean, tensor
 
-from .utils import validate_callable, validate_type
+from .utils.validation import validate_callable, validate_type
 
 
 class Metric:

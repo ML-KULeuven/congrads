@@ -1,3 +1,4 @@
+import os
 from argparse import ArgumentParser
 
 import torch
@@ -7,25 +8,28 @@ from torch.nn import MSELoss
 from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
 
-from congrads.constraints import (
+from congrads.callbacks.base import Callback, CallbackManager
+from congrads.callbacks.registry import LoggerCallback
+from congrads.constraints.base import Constraint
+from congrads.constraints.registry import (
     ANDConstraint,
-    Constraint,
     ImplicationConstraint,
     MonotonicityConstraint,
     ScalarConstraint,
 )
-from congrads.core import CongradsCore
-from congrads.datasets import SyntheticMonotonicity
+from congrads.core.congradscore import CongradsCore
+from congrads.datasets.registry import SyntheticMonotonicity
 from congrads.descriptor import Descriptor
 from congrads.metrics import MetricManager
-from congrads.networks import MLPNetwork
-from congrads.utils import (
+from congrads.networks.registry import MLPNetwork
+from congrads.utils.utility import (
     CSVLogger,
     Seeder,
     split_data_loaders,
 )
 
-if __name__ == "__main__":
+
+def main():
     # Argument parser
     parser = ArgumentParser(description="Run script with specified epochs.")
     parser.add_argument("--n_epoch", type=int, default=500, help="Number of epochs")
@@ -86,56 +90,54 @@ if __name__ == "__main__":
     # Initialize metric manager
     metric_manager = MetricManager()
 
-    # Instantiate core
-    core = CongradsCore(
-        descriptor,
-        constraints,
-        loaders,
-        network,
-        criterion,
-        optimizer,
-        metric_manager,
-        device,
-        enforce_all=False,
-    )
-
     # Initialize data loggers
     tensorboard_logger = SummaryWriter(log_dir="logs/SimpleMonotonicity")
     csv_logger = CSVLogger("logs/SimpleMonotonicity.csv")
+    logger_callback = LoggerCallback(
+        metric_manager=metric_manager, tensorboard_logger=tensorboard_logger, csv_logger=csv_logger
+    )
 
-    def on_epoch_end(epoch: int):
-        # Log metric values to TensorBoard and CSV file
-        for name, value in metric_manager.aggregate("during_training").items():
-            tensorboard_logger.add_scalar(name, value.item(), epoch)
-            csv_logger.add_value(name, value.item(), epoch)
+    # Callbacks setup
+    plotting_callback = PlottingCallback(network, dataset, device)
+    callback_manager = CallbackManager().add(plotting_callback).add(logger_callback)
 
-        # Write changes to disk
-        tensorboard_logger.flush()
-        csv_logger.save()
-
-        # Reset metric manager
-        metric_manager.reset("during_training")
-
-        # Plotting
-        plot_regression_epoch(network, dataset, device)
-        plt.savefig("SimpleMonotonicity.png")
-        plt.close()
-
-    def on_test_end(epoch: int):
-        # Log metric values to TensorBoard and CSV file
-        for name, value in metric_manager.aggregate("after_training").items():
-            tensorboard_logger.add_scalar(name, value.item(), epoch)
-            csv_logger.add_value(name, value.item(), epoch)
-
-        # Write changes to disk
-        tensorboard_logger.flush()
-        csv_logger.save()
-
-        # Reset metric manager
-        metric_manager.reset("after_training")
+    # Instantiate core
+    core = CongradsCore(
+        descriptor=descriptor,
+        constraints=constraints,
+        dataloader_train=loaders[0],
+        dataloader_valid=loaders[1],
+        dataloader_test=loaders[2],
+        network=network,
+        criterion=criterion,
+        optimizer=optimizer,
+        metric_manager=metric_manager,
+        callback_manager=callback_manager,
+        device=device,
+        enforce_all=False,
+    )
 
     # Start/resume training
-    core.fit(max_epochs=args.n_epoch, on_epoch_end=[on_epoch_end], on_test_end=[on_test_end])
+    core.fit(max_epochs=args.n_epoch)
 
     # Close writer
     tensorboard_logger.close()
+
+
+class PlottingCallback(Callback):
+    def __init__(self, network, dataset, device):
+        super().__init__()
+        self.network = network
+        self.dataset = dataset
+        self.device = device
+
+        os.makedirs("plots", exist_ok=True)
+
+    def on_epoch_end(self, *args):
+        plot_regression_epoch(self.network, self.dataset, self.device)
+        plt.savefig("plots/SimpleMonotonicity.png")
+        plt.close()
+
+
+if __name__ == "__main__":
+    main()

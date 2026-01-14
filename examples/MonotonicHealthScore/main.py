@@ -1,3 +1,4 @@
+import os
 from argparse import ArgumentParser
 
 import torch
@@ -8,24 +9,27 @@ from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
 from util import split_dataset
 
-from congrads.constraints import (
+from congrads.callbacks.base import Callback, CallbackManager
+from congrads.callbacks.registry import LoggerCallback
+from congrads.constraints.base import Constraint
+from congrads.constraints.registry import (
     BinaryConstraint,
-    Constraint,
-    GroupedMonotonicityConstraint,
     ImplicationConstraint,
+    PerGroupMonotonicityConstraint,
     ScalarConstraint,
 )
-from congrads.core import CongradsCore
-from congrads.datasets import SectionedGaussians
+from congrads.core.congradscore import CongradsCore
+from congrads.datasets.registry import SectionedGaussians
 from congrads.descriptor import Descriptor
 from congrads.metrics import MetricManager
-from congrads.networks import MLPNetwork
-from congrads.utils import (
+from congrads.networks.registry import MLPNetwork
+from congrads.utils.utility import (
     CSVLogger,
     Seeder,
 )
 
-if __name__ == "__main__":
+
+def main():
     # Argument parser
     parser = ArgumentParser(description="Run script with specified epochs.")
     parser.add_argument("--n_epoch", type=int, default=150, help="Number of epochs")
@@ -118,7 +122,7 @@ if __name__ == "__main__":
             head=ScalarConstraint("time", torch.ge, 0.9),
             body=ScalarConstraint("score", torch.le, 0.05, rescale_factor=2.0),
         ),
-        GroupedMonotonicityConstraint(
+        PerGroupMonotonicityConstraint(
             "score",
             "time",
             "run_id",
@@ -135,57 +139,63 @@ if __name__ == "__main__":
     # Initialize metric manager
     metric_manager = MetricManager()
 
-    # Instantiate core
-    core = CongradsCore(
-        descriptor,
-        constraints,
-        loaders,
-        network,
-        criterion,
-        optimizer,
-        metric_manager,
-        device,
-        enforce_all=False,
-    )
-
     # Initialize data loggers
     tensorboard_logger = SummaryWriter(log_dir="logs/MonotonicHealthScore")
     csv_logger = CSVLogger("logs/MonotonicHealthScore.csv")
+    logger_callback = LoggerCallback(
+        metric_manager=metric_manager, tensorboard_logger=tensorboard_logger, csv_logger=csv_logger
+    )
 
-    def on_epoch_end(epoch: int):
-        # Log metric values to TensorBoard and CSV file
-        for name, value in metric_manager.aggregate("during_training").items():
-            tensorboard_logger.add_scalar(name, value.item(), epoch)
-            csv_logger.add_value(name, value.item(), epoch)
+    # Callbacks setup
+    plotting_callback = PlottingCallback(descriptor, network, loaders, device)
+    callback_manager = CallbackManager().add(plotting_callback).add(logger_callback)
 
-        # Write changes to disk
-        tensorboard_logger.flush()
-        csv_logger.save()
-
-        # Reset metric manager
-        metric_manager.reset("during_training")
-
-        # Plotting
-        if epoch % 10 == 0 or epoch == args.n_epoch - 1:
-            plot_regression_epoch(descriptor, network, loaders, device)
-            plt.savefig("MonotonicHealthScore.png")
-            plt.close()
-
-    def on_test_end(epoch: int):
-        # Log metric values to TensorBoard and CSV file
-        for name, value in metric_manager.aggregate("after_training").items():
-            tensorboard_logger.add_scalar(name, value.item(), epoch)
-            csv_logger.add_value(name, value.item(), epoch)
-
-        # Write changes to disk
-        tensorboard_logger.flush()
-        csv_logger.save()
-
-        # Reset metric manager
-        metric_manager.reset("after_training")
+    # Instantiate core
+    core = CongradsCore(
+        descriptor=descriptor,
+        constraints=constraints,
+        dataloader_train=loaders[0],
+        dataloader_valid=loaders[1],
+        dataloader_test=loaders[2],
+        network=network,
+        criterion=criterion,
+        optimizer=optimizer,
+        metric_manager=metric_manager,
+        callback_manager=callback_manager,
+        device=device,
+        enforce_all=False,
+    )
 
     # Start/resume training
-    core.fit(max_epochs=args.n_epoch, on_epoch_end=[on_epoch_end], on_test_end=[on_test_end])
+    core.fit(max_epochs=args.n_epoch)
 
     # Close writer
     tensorboard_logger.close()
+
+
+class PlottingCallback(Callback):
+    def __init__(self, descriptor, network, loaders, device):
+        super().__init__()
+        self.descriptor = descriptor
+        self.network = network
+        self.loaders = loaders
+        self.device = device
+
+        os.makedirs("plots", exist_ok=True)
+
+    def on_epoch_end(self, data: dict, *args):
+        epoch = data.get("epoch", 0)
+        if epoch % 10 == 0:
+            self._plot_figure()
+
+    def on_train_end(self, *args):
+        self._plot_figure()
+
+    def _plot_figure(self):
+        plot_regression_epoch(self.descriptor, self.network, self.loaders, self.device)
+        plt.savefig("plots/MonotonicHealthScore.png")
+        plt.close()
+
+
+if __name__ == "__main__":
+    main()

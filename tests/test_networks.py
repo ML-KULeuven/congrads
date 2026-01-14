@@ -2,7 +2,7 @@ import pytest
 import torch
 from torch.nn import Linear, ReLU, Tanh
 
-from congrads.networks import MLPNetwork
+from congrads.networks.registry import MLPNetwork
 
 
 def test_default_initialization():

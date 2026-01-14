@@ -2,7 +2,7 @@ import torch
 from torch.nn import NLLLoss, Softmax
 from torch.nn.modules.loss import _Loss
 
-from congrads.networks import MLPNetwork
+from congrads.networks.registry import MLPNetwork
 
 
 class MLPNetworkWithSoftmax(MLPNetwork):

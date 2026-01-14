@@ -14,7 +14,7 @@ from torch.nn import Module
 from torch.optim import Optimizer
 
 from .metrics import MetricManager
-from .utils import validate_callable, validate_type
+from .utils.validation import validate_callable, validate_type
 
 
 class CheckpointManager:

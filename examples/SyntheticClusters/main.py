@@ -1,3 +1,4 @@
+import os
 from argparse import ArgumentParser
 
 import torch
@@ -7,22 +8,25 @@ from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
 from util import MLPNetworkWithSoftmax, NNLLossFromProb
 
-from congrads.constraints import (
-    Constraint,
+from congrads.callbacks.base import Callback, CallbackManager
+from congrads.callbacks.registry import LoggerCallback
+from congrads.constraints.base import Constraint
+from congrads.constraints.registry import (
     ImplicationConstraint,
     ScalarConstraint,
 )
-from congrads.core import CongradsCore
-from congrads.datasets import SyntheticClusters
+from congrads.core.congradscore import CongradsCore
+from congrads.datasets.registry import SyntheticClusters
 from congrads.descriptor import Descriptor
 from congrads.metrics import MetricManager
-from congrads.utils import (
+from congrads.utils.utility import (
     CSVLogger,
     Seeder,
     split_data_loaders,
 )
 
-if __name__ == "__main__":
+
+def main():
     # Argument parser
     parser = ArgumentParser(description="Run script with specified epochs.")
     parser.add_argument("--n_epoch", type=int, default=350, help="Number of epochs")
@@ -88,56 +92,53 @@ if __name__ == "__main__":
     # Initialize metric manager
     metric_manager = MetricManager()
 
-    # Instantiate core
-    core = CongradsCore(
-        descriptor,
-        constraints,
-        loaders,
-        network,
-        criterion,
-        optimizer,
-        metric_manager,
-        device,
-        enforce_all=False,
-    )
-
     # Initialize data loggers
     tensorboard_logger = SummaryWriter(log_dir="logs/SyntheticClusters")
     csv_logger = CSVLogger("logs/SyntheticClusters.csv")
+    logger_callback = LoggerCallback(
+        metric_manager=metric_manager, tensorboard_logger=tensorboard_logger, csv_logger=csv_logger
+    )
 
-    def on_epoch_end(epoch: int):
-        # Log metric values to TensorBoard and CSV file
-        for name, value in metric_manager.aggregate("during_training").items():
-            tensorboard_logger.add_scalar(name, value.item(), epoch)
-            csv_logger.add_value(name, value.item(), epoch)
+    # Callbacks setup
+    plotting_callback = PlottingCallback(network, dataset)
+    callback_manager = CallbackManager().add(plotting_callback).add(logger_callback)
 
-        # Write changes to disk
-        tensorboard_logger.flush()
-        csv_logger.save()
-
-        # Reset metric manager
-        metric_manager.reset("during_training")
-
-        # Plotting
-        plot_decision_boundary(network, dataset)
-        plt.savefig("SyntheticClusters.png")
-        plt.close()
-
-    def on_test_end(epoch: int):
-        # Log metric values to TensorBoard and CSV file
-        for name, value in metric_manager.aggregate("after_training").items():
-            tensorboard_logger.add_scalar(name, value.item(), epoch)
-            csv_logger.add_value(name, value.item(), epoch)
-
-        # Write changes to disk
-        tensorboard_logger.flush()
-        csv_logger.save()
-
-        # Reset metric manager
-        metric_manager.reset("after_training")
+    # Instantiate core
+    core = CongradsCore(
+        descriptor=descriptor,
+        constraints=constraints,
+        dataloader_train=loaders[0],
+        dataloader_valid=loaders[1],
+        dataloader_test=loaders[2],
+        network=network,
+        criterion=criterion,
+        optimizer=optimizer,
+        metric_manager=metric_manager,
+        callback_manager=callback_manager,
+        device=device,
+        enforce_all=False,
+    )
 
     # Start/resume training
-    core.fit(max_epochs=args.n_epoch, on_epoch_end=[on_epoch_end], on_test_end=[on_test_end])
+    core.fit(max_epochs=args.n_epoch)
 
     # Close writer
     tensorboard_logger.close()
+
+
+class PlottingCallback(Callback):
+    def __init__(self, network, dataset):
+        super().__init__()
+        self.network = network
+        self.dataset = dataset
+
+        os.makedirs("plots", exist_ok=True)
+
+    def on_epoch_end(self, *args):
+        plot_decision_boundary(self.network, self.dataset)
+        plt.savefig("plots/SyntheticClusters.png")
+        plt.close()
+
+
+if __name__ == "__main__":
+    main()

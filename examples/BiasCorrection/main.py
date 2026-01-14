@@ -6,21 +6,25 @@ from torch.nn import MSELoss
 from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
 
+from congrads.callbacks.base import CallbackManager
+from congrads.callbacks.registry import LoggerCallback
 from congrads.checkpoints import CheckpointManager
-from congrads.constraints import BinaryConstraint, Constraint, ScalarConstraint
-from congrads.core import CongradsCore
-from congrads.datasets import BiasCorrection
+from congrads.constraints.base import Constraint
+from congrads.constraints.registry import BinaryConstraint, ScalarConstraint
+from congrads.core.congradscore import CongradsCore
+from congrads.datasets.registry import BiasCorrection
 from congrads.descriptor import Descriptor
 from congrads.metrics import MetricManager
-from congrads.networks import MLPNetwork
-from congrads.utils import (
+from congrads.networks.registry import MLPNetwork
+from congrads.utils.preprocessors import preprocess_BiasCorrection
+from congrads.utils.utility import (
     CSVLogger,
     Seeder,
-    preprocess_BiasCorrection,
     split_data_loaders,
 )
 
-if __name__ == "__main__":
+
+def main():
     # Argument parser
     parser = ArgumentParser(description="Run script with specified epochs.")
     parser.add_argument("--n_epoch", type=int, default=50, help="Number of epochs")
@@ -89,62 +93,42 @@ if __name__ == "__main__":
         report_save=True,
     )
 
-    # Instantiate core
-    core = CongradsCore(
-        descriptor,
-        constraints,
-        loaders,
-        network,
-        criterion,
-        optimizer,
-        metric_manager,
-        device,
-        checkpoint_manager=checkpoint_manager,
-    )
-
     # Initialize data loggers
     tensorboard_logger = SummaryWriter(log_dir="logs/BiasCorrection")
     csv_logger = CSVLogger("logs/BiasCorrection.csv")
+    logger_callback = LoggerCallback(
+        metric_manager=metric_manager, tensorboard_logger=tensorboard_logger, csv_logger=csv_logger
+    )
 
-    def on_epoch_end(epoch: int):
-        # Log metric values to TensorBoard and CSV file
-        for name, value in metric_manager.aggregate("during_training").items():
-            tensorboard_logger.add_scalar(name, value.item(), epoch)
-            csv_logger.add_value(name, value.item(), epoch)
+    # Callbacks setup
+    callback_manager = CallbackManager().add(logger_callback)
 
-        # Write changes to disk
-        tensorboard_logger.flush()
-        csv_logger.save()
-
-        # Reset metric manager
-        metric_manager.reset("during_training")
-
-        # Halve learning rate each 5 epochs
-        if epoch % 5:
-            for g in optimizer.param_groups:
-                g["lr"] /= 2
-
-    def on_test_end(epoch: int):
-        # Log metric values to TensorBoard and CSV file
-        for name, value in metric_manager.aggregate("after_training").items():
-            tensorboard_logger.add_scalar(name, value.item(), epoch)
-            csv_logger.add_value(name, value.item(), epoch)
-
-        # Write changes to disk
-        tensorboard_logger.flush()
-        csv_logger.save()
-
-        # Reset metric manager
-        metric_manager.reset("after_training")
+    # Instantiate core
+    core = CongradsCore(
+        network=network,
+        descriptor=descriptor,
+        constraints=constraints,
+        dataloader_train=loaders[0],
+        dataloader_valid=loaders[1],
+        dataloader_test=loaders[2],
+        criterion=criterion,
+        optimizer=optimizer,
+        callback_manager=callback_manager,
+        metric_manager=metric_manager,
+        device=device,
+        checkpoint_manager=checkpoint_manager,
+    )
 
     # Start/resume training
     start_epoch = checkpoint_manager.resume(ignore_missing=True)
     core.fit(
         start_epoch=start_epoch,
         max_epochs=args.n_epoch,
-        on_epoch_end=[on_epoch_end],
-        on_test_end=[on_test_end],
     )
 
     # Close writer
     tensorboard_logger.close()
+
+
+if __name__ == "__main__":
+    main()

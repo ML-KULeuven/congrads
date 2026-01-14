@@ -2,11 +2,13 @@ import pytest
 import torch
 from torch import Tensor
 
-from congrads.transformations import (
+from congrads.transformations.base import (
+    Transformation,
+)
+from congrads.transformations.registry import (
     ApplyOperator,
     DenormalizeMinMax,
     IdentityTransformation,
-    Transformation,
 )
 
 

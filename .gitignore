@@ -241,7 +241,7 @@ fabric.properties
 
 ## Custom
 lightning_logs/
-datasets/
+examples/**/datasets/
 runs/
 logs/
 checkpoints/

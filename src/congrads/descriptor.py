@@ -12,7 +12,7 @@ indices, and optional attributes, such as whether the data is constant or variab
 
 from torch import Tensor
 
-from .utils import validate_type
+from .utils.validation import validate_type
 
 
 class Descriptor:
