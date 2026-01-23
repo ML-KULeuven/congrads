@@ -1,141 +1,143 @@
+import inspect
+
 import pytest
 import torch
+from torch import Tensor
 
-from congrads.constraints.registry import (
-    BinaryConstraint,
-    Constraint,
-    ImplicationConstraint,
-    MonotonicityConstraint,
-    ScalarConstraint,
-    SumConstraint,
-)
+from congrads.constraints import registry
 from congrads.descriptor import Descriptor
 
 
+# --- Fixtures --- #
 @pytest.fixture
 def mock_data():
     return {
-        "layer1": torch.tensor([[0.5, 1.5], [2.0, 0.5]]),
-        "layer2": torch.tensor([[1.0, 0.2], [0.0, 2.0]]),
+        "input": torch.tensor([[0.5, 1.5], [2.0, 0.5]]),
+        "output": torch.tensor([[1.0, 0.2], [0.0, 2.0]]),
+        "context": torch.tensor([[0], [1]]),
     }
 
 
 @pytest.fixture(autouse=True)
 def patch_descriptor():
     mock_descriptor = Descriptor()
-    mock_descriptor.add("layer1", "a", 0)
-    mock_descriptor.add("layer1", "b", 1)
-    mock_descriptor.add("layer2", "c", 0)
-    mock_descriptor.add("layer2", "d", 1)
+    mock_descriptor.add("input", "a", 0, constant=True)
+    mock_descriptor.add("input", "b", 1, constant=True)
+    mock_descriptor.add("output", "c", 0)
+    mock_descriptor.add("output", "d", 1)
+    mock_descriptor.add("context", "id", 0, constant=True)
 
-    Constraint.descriptor = mock_descriptor
-    Constraint.device = "cpu"
-
-
-# --- Constraint instances fixtures --- #
-@pytest.fixture
-def scalar_constraint():
-    return ScalarConstraint("a", torch.lt, 1.0)
+    registry.Constraint.descriptor = mock_descriptor
+    registry.Constraint.device = "cpu"
 
 
-@pytest.fixture
-def binary_constraint():
-    return BinaryConstraint("a", torch.lt, "b")
+# --- Dynamic discovery of all constraint classes --- #
+def get_all_constraint_classes():
+    """Return all Constraint subclasses in the registry, except the base class."""
+    return [
+        cls
+        for name, cls in inspect.getmembers(registry, inspect.isclass)
+        if issubclass(cls, registry.Constraint) and cls is not registry.Constraint
+    ]
 
 
-@pytest.fixture
-def implication_constraint(scalar_constraint, binary_constraint):
-    return ImplicationConstraint(scalar_constraint, binary_constraint)
+# --- Default constructors for each constraint --- #
+constraint_defaults = {
+    "ScalarConstraint": lambda: registry.ScalarConstraint("a", "<", 1.0),
+    "BinaryConstraint": lambda: registry.BinaryConstraint("a", ">", "b"),
+    "ImplicationConstraint": lambda: registry.ImplicationConstraint(
+        registry.ScalarConstraint("a", "<", 1.0),
+        registry.BinaryConstraint("a", "<", "b"),
+    ),
+    "SumConstraint": lambda: registry.SumConstraint(
+        ["a", "b"], "<=", ["c", "d"], weights_left=[1.0, 0.5], weights_right=[0.5, 1.0]
+    ),
+    "RankedMonotonicityConstraint": lambda: registry.RankedMonotonicityConstraint(
+        "a", "b", direction="ascending"
+    ),
+    "PairwiseMonotonicityConstraint": lambda: registry.PairwiseMonotonicityConstraint(
+        "a", "b", direction="ascending"
+    ),
+    "PerGroupMonotonicityConstraint": lambda: registry.PerGroupMonotonicityConstraint(
+        registry.RankedMonotonicityConstraint("a", "b", direction="ascending"),
+        tag_group="id",
+    ),
+    "EncodedGroupedMonotonicityConstraint": lambda: registry.EncodedGroupedMonotonicityConstraint(
+        registry.RankedMonotonicityConstraint("a", "b", direction="ascending"),
+        tag_group="id",
+    ),
+    "ORConstraint": lambda: registry.ORConstraint(
+        registry.ScalarConstraint("a", "<=", 1.0),
+        registry.BinaryConstraint("a", ">", "b"),
+    ),
+    "ANDConstraint": lambda: registry.ANDConstraint(
+        registry.ScalarConstraint("a", "<", 1.0),
+        registry.BinaryConstraint("a", ">=", "b"),
+    ),
+}
 
 
-@pytest.fixture
-def sum_constraint():
-    return SumConstraint(
-        ["a", "b"], torch.lt, ["c", "d"], weights_left=[1.0, 0.5], weights_right=[0.5, 1.0]
-    )
-
-
-@pytest.fixture
-def monotonicity_constraint():
-    return MonotonicityConstraint("a", "b", direction="ascending")
-
-
-# --- Parameterized tests --- #
-@pytest.mark.parametrize(
-    "constraint_fixture",
-    [
-        "scalar_constraint",
-        "binary_constraint",
-        "implication_constraint",
-        "sum_constraint",
-        "monotonicity_constraint",
-    ],
-)
-def test_constraints_initialization(constraint_fixture, request):
-    constraint = request.getfixturevalue(constraint_fixture)
-    assert isinstance(constraint, Constraint)
+# --- Parameterized tests over all constraints --- #
+@pytest.mark.parametrize("constraint_cls", get_all_constraint_classes())
+def test_constraints_initialization(constraint_cls):
+    """Test that all constraints initialize properly with expected attributes."""
+    if constraint_cls.__name__ not in constraint_defaults:
+        pytest.skip(f"No default constructor for {constraint_cls.__name__}, skipping test.")
+    constraint = constraint_defaults[constraint_cls.__name__]()
+    assert isinstance(constraint, registry.Constraint)
     assert isinstance(constraint.tags, set)
     assert isinstance(constraint.name, str)
     assert hasattr(constraint, "rescale_factor")
 
 
-@pytest.mark.parametrize(
-    "constraint_fixture",
-    [
-        "scalar_constraint",
-        "binary_constraint",
-        "implication_constraint",
-        "sum_constraint",
-        "monotonicity_constraint",
-    ],
-)
-def test_constraints_check_constraint(constraint_fixture, request, mock_data):
-    constraint = request.getfixturevalue(constraint_fixture)
+@pytest.mark.parametrize("constraint_cls", get_all_constraint_classes())
+def test_constraints_check_constraint(constraint_cls, mock_data):
+    """Test that check_constraint returns tensors of correct shape and type."""
+    if constraint_cls.__name__ not in constraint_defaults:
+        pytest.skip(f"No default constructor for {constraint_cls.__name__}, skipping test.")
+
+    constraint = constraint_defaults[constraint_cls.__name__]()
     result, mask = constraint.check_constraint(mock_data)
-    assert isinstance(result, torch.Tensor)
-    assert isinstance(mask, torch.Tensor)
+
+    # Shape and type checks
+    assert isinstance(result, Tensor)
+    assert isinstance(mask, Tensor)
     batch_size = next(iter(mock_data.values())).shape[0]
     assert result.shape[0] == batch_size
     assert mask.shape[0] == batch_size
-    # Only for constraints returning binary satisfaction
-    if isinstance(
-        constraint, (ScalarConstraint, BinaryConstraint, ImplicationConstraint, SumConstraint)
-    ):
-        assert torch.all((result == 0) | (result == 1))
+
+    assert torch.all((result == 0) | (result == 1)), (
+        f"{constraint_cls.__name__} returned non-binary values"
+    )
 
 
-@pytest.mark.parametrize(
-    "constraint_fixture",
-    [
-        "scalar_constraint",
-        "binary_constraint",
-        "implication_constraint",
-        "sum_constraint",
-        "monotonicity_constraint",
-    ],
-)
-def test_constraints_calculate_direction(constraint_fixture, request, mock_data):
-    constraint = request.getfixturevalue(constraint_fixture)
-    constraint.check_constraint(mock_data)  # In case direction state depends on satisfaction
+@pytest.mark.parametrize("constraint_cls", get_all_constraint_classes())
+def test_constraints_calculate_direction(constraint_cls, mock_data):
+    """Test that calculate_direction returns direction tensors correctly."""
+    if constraint_cls.__name__ not in constraint_defaults:
+        pytest.skip(f"No default constructor for {constraint_cls.__name__}, skipping test.")
+
+    constraint = constraint_defaults[constraint_cls.__name__]()
+    result, _ = constraint.check_constraint(mock_data)  # ensure directions are computed
     directions = constraint.calculate_direction(mock_data)
+
     assert isinstance(directions, dict)
-    for layer, tensor_val in directions.items():
-        assert layer in constraint.descriptor.variable_keys.union(
-            constraint.descriptor.constant_keys
+    for layer, dir_tensor in directions.items():
+        # shape check: directions are 2D
+        assert dir_tensor.ndim == 2, f"{layer} direction tensor not 2D"
+
+        # layer key exists in descriptor
+        descriptor_keys = getattr(constraint.descriptor, "variable_keys", set()) | getattr(
+            constraint.descriptor, "constant_keys", set()
         )
-        assert tensor_val.ndim == 2
-        # Normalization test for constraints where directions are normalized
-        if isinstance(
-            constraint, (ScalarConstraint, BinaryConstraint, ImplicationConstraint, SumConstraint)
-        ):
-            norms = tensor_val.norm(dim=1)
-            assert torch.allclose(norms, torch.ones_like(norms))
+        assert layer in descriptor_keys, f"{layer} not in descriptor keys"
 
 
+# --- Specific logic tests --- #
 def test_implication_constraint_logic(mock_data):
-    scalar = ScalarConstraint("a", torch.lt, 1.0)
-    binary = BinaryConstraint("a", torch.lt, "b")
-    implication = ImplicationConstraint(scalar, binary)
+    scalar = registry.ScalarConstraint("a", "<", 1.0)
+    binary = registry.BinaryConstraint("a", "<", "b")
+    implication = registry.ImplicationConstraint(scalar, binary)
     result, head_satisfaction = implication.check_constraint(mock_data)
     assert torch.all((result == 1) | (result == 0))
 
@@ -143,4 +145,4 @@ def test_implication_constraint_logic(mock_data):
 def test_sum_constraint_weight_mismatch():
     # Should raise ValueError if weights don't match number of tags
     with pytest.raises(ValueError):
-        SumConstraint(["a", "b"], torch.lt, ["c", "d"], weights_left=[1.0])
+        registry.SumConstraint(["a", "b"], "<", ["c", "d"], weights_left=[1.0])

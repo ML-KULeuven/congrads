@@ -20,6 +20,7 @@ import string
 import warnings
 from abc import ABC, abstractmethod
 from numbers import Number
+from typing import Literal
 
 from torch import Tensor
 
@@ -148,11 +149,8 @@ class Constraint(ABC):
             for satisfaction, and 0.0 for non-satisfaction, and the second element is a tensor
             mask that indicates the relevance of each sample (`True` for relevant
             samples and `False` for irrelevant ones).
-
-        Raises:
-            NotImplementedError: If not implemented in a subclass.
         """
-        raise NotImplementedError
+        pass
 
     @abstractmethod
     def calculate_direction(self, data: dict[str, Tensor]) -> dict[str, Tensor]:
@@ -167,8 +165,78 @@ class Constraint(ABC):
         Returns:
             dict[str, Tensor]: Dictionary mapping network layers to tensors that
                 specify the adjustment direction for each tag.
-
-        Raises:
-            NotImplementedError: Must be implemented by subclasses.
         """
-        raise NotImplementedError
+        pass
+
+
+class MonotonicityConstraint(Constraint, ABC):
+    """Abstract base class for monotonicity constraints.
+
+    Subclasses must define how monotonicity is evaluated and how corrective
+    directions are computed.
+    """
+
+    def __init__(
+        self,
+        tag_prediction: str,
+        tag_reference: str,
+        rescale_factor_lower: float = 1.5,
+        rescale_factor_upper: float = 1.75,
+        stable: bool = True,
+        direction: Literal["ascending", "descending"] = "ascending",
+        name: str = None,
+        enforce: bool = True,
+    ):
+        """Constraint that enforces monotonicity on a predicted output.
+
+        This constraint ensures that the activations of a prediction tag (`tag_prediction`)
+        are monotonically ascending or descending with respect to a target tag (`tag_reference`).
+
+        Args:
+            tag_prediction (str): Name of the tag whose activations should follow the monotonic relationship.
+            tag_reference (str): Name of the tag that acts as the monotonic reference.
+            rescale_factor_lower (float, optional): Lower bound for rescaling rank differences. Defaults to 1.5.
+            rescale_factor_upper (float, optional): Upper bound for rescaling rank differences. Defaults to 1.75.
+            stable (bool, optional): Whether to use stable sorting when ranking. Defaults to True.
+            direction (str, optional): Direction of monotonicity to enforce, either 'ascending' or 'descending'. Defaults to 'ascending'.
+            name (str, optional): Custom name for the constraint. If None, a descriptive name is auto-generated.
+            enforce (bool, optional): If False, the constraint is only monitored (not enforced). Defaults to True.
+        """
+        # Type checking
+        validate_type("rescale_factor_lower", rescale_factor_lower, float)
+        validate_type("rescale_factor_upper", rescale_factor_upper, float)
+        validate_type("stable", stable, bool)
+        validate_type("direction", direction, str)
+
+        # Compose constraint name
+        if name is None:
+            name = f"{tag_prediction} monotonically {direction} by {tag_reference}"
+
+        # Init parent class
+        super().__init__({tag_prediction}, name, enforce, 1.0)
+
+        # Init variables
+        self.tag_prediction = tag_prediction
+        self.tag_reference = tag_reference
+        self.rescale_factor_lower = rescale_factor_lower
+        self.rescale_factor_upper = rescale_factor_upper
+        self.stable = stable
+        self.direction = direction
+        self.descending = direction == "descending"
+
+        # Init member variables
+        self.compared_rankings: Tensor = None
+
+    @abstractmethod
+    def check_constraint(self, data: dict[str, Tensor]) -> tuple[Tensor, Tensor]:
+        """Evaluate whether the monotonicity constraint is satisfied.
+
+        Implementations must set `self.compared_rankings` with per-sample
+        correction directions.
+        """
+        pass
+
+    @abstractmethod
+    def calculate_direction(self, data: dict[str, Tensor]) -> dict[str, Tensor]:
+        """Return directions for monotonicity enforcement."""
+        pass

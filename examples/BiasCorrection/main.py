@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 
 import torch
-from torch import Tensor, ge, gt, le
+from torch import Tensor
 from torch.nn import MSELoss
 from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
@@ -64,11 +64,11 @@ def main():
     Constraint.descriptor = descriptor
     Constraint.device = device
     constraints = [
-        ScalarConstraint("Tmin", ge, 0),
-        ScalarConstraint("Tmin", le, 1),
-        ScalarConstraint("Tmax", ge, 0),
-        ScalarConstraint("Tmax", le, 1),
-        BinaryConstraint("Tmax", gt, "Tmin"),
+        ScalarConstraint("Tmin", ">=", 0),
+        ScalarConstraint("Tmin", "<=", 1),
+        ScalarConstraint("Tmax", ">=", 0),
+        ScalarConstraint("Tmax", "<=", 1),
+        BinaryConstraint("Tmax", ">", "Tmin"),
     ]
 
     # Initialize metric manager

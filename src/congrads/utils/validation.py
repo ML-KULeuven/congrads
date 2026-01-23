@@ -5,7 +5,6 @@ including type validation, callable validation, and PyTorch-specific
 validation functions.
 """
 
-import torch
 from torch.utils.data import DataLoader
 
 
@@ -81,31 +80,20 @@ def validate_iterable(
         )
 
 
-def validate_comparator_pytorch(name, value):
+def validate_comparator(name, value, comparator_map: dict):
     """Validate that a value is a callable PyTorch comparator function.
 
     Args:
         name (str): Name of the argument for error messages.
         value: Value to validate.
+        comparator_map: The comparator function map.
 
     Raises:
-        TypeError: If the value is not callable or not a PyTorch comparator.
+        TypeError: If the value is not a valid comparator.
     """
-    # List of valid PyTorch comparator functions
-    pytorch_comparators = {torch.gt, torch.lt, torch.ge, torch.le}
-
-    # Check if value is callable and if it's one of
-    # the PyTorch comparator functions
-    if not callable(value):
+    if value not in comparator_map:
         raise TypeError(
-            f"Argument {name} '{str(value)}' is not supported. Only callable functions are allowed."
-        )
-
-    if value not in pytorch_comparators:
-        raise TypeError(
-            f"Argument {name} '{str(value)}' is not a valid PyTorch comparator "
-            "function. Only PyTorch functions like torch.gt, torch.lt, "
-            "torch.ge, torch.le are allowed."
+            f"Unsupported comparator: {value}. Supported comparators are: {list(comparator_map.keys())}."
         )
 
 

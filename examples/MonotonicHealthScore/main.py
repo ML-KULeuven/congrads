@@ -16,6 +16,7 @@ from congrads.constraints.registry import (
     BinaryConstraint,
     ImplicationConstraint,
     PerGroupMonotonicityConstraint,
+    RankedMonotonicityConstraint,
     ScalarConstraint,
 )
 from congrads.core.congradscore import CongradsCore
@@ -112,27 +113,29 @@ def main():
     Constraint.descriptor = descriptor
     Constraint.device = device
     constraints = [
-        ScalarConstraint("score", torch.le, 1.05, rescale_factor=2.5),
-        ScalarConstraint("score", torch.ge, -0.05, rescale_factor=2.5),
+        ScalarConstraint("score", "<=", 1.05, rescale_factor=2.5),
+        ScalarConstraint("score", ">=", -0.05, rescale_factor=2.5),
         ImplicationConstraint(
-            head=ScalarConstraint("time", torch.le, 0.1),
-            body=ScalarConstraint("score", torch.ge, 0.95, rescale_factor=2.0),
+            head=ScalarConstraint("time", "<=", 0.1),
+            body=ScalarConstraint("score", ">=", 0.95, rescale_factor=2.0),
         ),
         ImplicationConstraint(
-            head=ScalarConstraint("time", torch.ge, 0.9),
-            body=ScalarConstraint("score", torch.le, 0.05, rescale_factor=2.0),
+            head=ScalarConstraint("time", ">=", 0.9),
+            body=ScalarConstraint("score", "<=", 0.05, rescale_factor=2.0),
         ),
         PerGroupMonotonicityConstraint(
-            "score",
-            "time",
-            "run_id",
-            direction="descending",
-            rescale_factor_lower=1.50,
-            rescale_factor_upper=1.75,
+            base=RankedMonotonicityConstraint(
+                "score",
+                "time",
+                direction="descending",
+                rescale_factor_lower=1.50,
+                rescale_factor_upper=1.75,
+            ),
+            tag_group="run_id",
         ),
         ImplicationConstraint(
-            head=ScalarConstraint("time", torch.le, 0.9),
-            body=BinaryConstraint("score", torch.ge, "energy", rescale_factor=1.25),
+            head=ScalarConstraint("time", "<=", 0.9),
+            body=BinaryConstraint("score", ">=", "energy", rescale_factor=1.25),
         ),
     ]
 
@@ -163,7 +166,7 @@ def main():
         metric_manager=metric_manager,
         callback_manager=callback_manager,
         device=device,
-        enforce_all=False,
+        enforce_all=True,
     )
 
     # Start/resume training

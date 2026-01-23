@@ -1,11 +1,11 @@
 import pytest
-import torch
 from torch.utils.data import DataLoader, Dataset
 
+from congrads.constraints.registry import COMPARATOR_MAP
 from congrads.utils.validation import (
     validate_callable,
     validate_callable_iterable,
-    validate_comparator_pytorch,
+    validate_comparator,
     validate_iterable,
     validate_loaders,
     validate_type,
@@ -35,12 +35,12 @@ def test_validate_iterable():
 
 
 def test_validate_comparator_pytorch():
-    validate_comparator_pytorch("cmp", torch.gt)
-    validate_comparator_pytorch("cmp", torch.lt)
+    for comparator in COMPARATOR_MAP.keys():
+        validate_comparator("cmp", comparator, COMPARATOR_MAP)
     with pytest.raises(TypeError):
-        validate_comparator_pytorch("cmp", lambda x, y: x > y)
+        validate_comparator("cmp", lambda x, y: x > y, COMPARATOR_MAP)
     with pytest.raises(TypeError):
-        validate_comparator_pytorch("cmp", "not a function")
+        validate_comparator("cmp", "not a function", COMPARATOR_MAP)
 
 
 def test_validate_callable():

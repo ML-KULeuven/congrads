@@ -84,8 +84,8 @@ def main():
     Constraint.device = device
     constraints = [
         ImplicationConstraint(
-            head=ScalarConstraint("x", torch.le, 0.25),
-            body=ScalarConstraint("ProbA", torch.ge, 0.7),
+            head=ScalarConstraint("x", "<=", 0.25),
+            body=ScalarConstraint("ProbA", ">=", 0.7),
         ),
     ]
 
@@ -116,7 +116,7 @@ def main():
         metric_manager=metric_manager,
         callback_manager=callback_manager,
         device=device,
-        enforce_all=False,
+        enforce_all=True,
     )
 
     # Start/resume training

@@ -19,6 +19,11 @@
 
 Whether you're working with simple inequality constraints, combinations of input-output relations, or custom constraint formulations, Congrads provides the tools and flexibility needed to build more robust and generalized models.
 
+
+> **Notice:** All previous `v1.x` releases are **yanked**.  
+> The library is still in active development, and backwards compatibility is not guaranteed.  
+> Please use the new `v0.x` series for ongoing updates.
+
 ## Key Features
 
 - **Constraint-Guided Training**: Add constraints to guide the optimization process, ensuring that your model generalizes better by trying to satisfy the constraints.
@@ -149,7 +154,7 @@ core.fit(max_epochs=50)
 ## Planned changes / Roadmap
 
 - [ ] Add ODE/PDE constraints to support PINNs
-- [ ] Rework callback system
+- [x] Rework callback system
 - [ ] Add support for constraint parser that can interpret equations
 
 ## Research

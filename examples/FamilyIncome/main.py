@@ -1,7 +1,6 @@
 from argparse import ArgumentParser
 
 import torch
-from torch import ge, le
 from torch.nn import MSELoss
 from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
@@ -71,31 +70,27 @@ def main():
     Constraint.descriptor = descriptor
     Constraint.device = device
     constraints = [
-        ScalarConstraint(
-            "Total Food Expenditure",
-            ge,
-            0,
-        ),
-        ScalarConstraint("Total Food Expenditure", le, 1),
-        ScalarConstraint("Bread and Cereals Expenditure", ge, 0),
-        ScalarConstraint("Bread and Cereals Expenditure", le, 1),
-        ScalarConstraint("Meat Expenditure", ge, 0),
-        ScalarConstraint("Meat Expenditure", le, 1),
-        ScalarConstraint("Vegetables Expenditure", ge, 0),
-        ScalarConstraint("Vegetables Expenditure", le, 1),
-        ScalarConstraint("Housing and water Expenditure", ge, 0),
-        ScalarConstraint("Housing and water Expenditure", le, 1),
-        ScalarConstraint("Medical Care Expenditure", ge, 0),
-        ScalarConstraint("Medical Care Expenditure", le, 1),
-        ScalarConstraint("Communication Expenditure", ge, 0),
-        ScalarConstraint("Communication Expenditure", le, 1),
-        ScalarConstraint("Education Expenditure", ge, 0),
-        ScalarConstraint("Education Expenditure", le, 1),
+        ScalarConstraint("Total Food Expenditure", ">=", 0),
+        ScalarConstraint("Total Food Expenditure", "<=", 1),
+        ScalarConstraint("Bread and Cereals Expenditure", ">=", 0),
+        ScalarConstraint("Bread and Cereals Expenditure", "<=", 1),
+        ScalarConstraint("Meat Expenditure", ">=", 0),
+        ScalarConstraint("Meat Expenditure", "<=", 1),
+        ScalarConstraint("Vegetables Expenditure", ">=", 0),
+        ScalarConstraint("Vegetables Expenditure", "<=", 1),
+        ScalarConstraint("Housing and water Expenditure", ">=", 0),
+        ScalarConstraint("Housing and water Expenditure", "<=", 1),
+        ScalarConstraint("Medical Care Expenditure", ">=", 0),
+        ScalarConstraint("Medical Care Expenditure", "<=", 1),
+        ScalarConstraint("Communication Expenditure", ">=", 0),
+        ScalarConstraint("Communication Expenditure", "<=", 1),
+        ScalarConstraint("Education Expenditure", ">=", 0),
+        ScalarConstraint("Education Expenditure", "<=", 1),
         SumConstraint(
             [
                 DenormalizeMinMax("Total Food Expenditure", min=3704, max=791848),
             ],
-            ge,
+            ">=",
             [
                 DenormalizeMinMax("Bread and Cereals Expenditure", min=0, max=437467),
                 DenormalizeMinMax("Meat Expenditure", min=0, max=140992),
@@ -106,7 +101,7 @@ def main():
             [
                 DenormalizeMinMax("Total Household Income", min=11285, max=11815988),
             ],
-            ge,
+            ">=",
             [
                 DenormalizeMinMax("Total Food Expenditure", min=3704, max=791848),
                 DenormalizeMinMax("Housing and water Expenditure", min=1950, max=2188560),

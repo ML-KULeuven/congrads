@@ -56,6 +56,8 @@ class ConstraintEngine:
         self.enforce_all = enforce_all
         self.aggregator = aggregator
 
+        self.norm_loss_grad: dict[str, Tensor] = {}
+
     def train(self, data: dict[str, Tensor], loss: Tensor) -> Tensor:
         """Apply all active constraints during training.
 
@@ -124,28 +126,9 @@ class ConstraintEngine:
         """
         total_rescale_loss = torch.tensor(0.0, device=self.device, dtype=loss.dtype)
 
-        # Precompute gradients for variable layers affecting the loss
         if phase == "train":
-            norm_loss_grad = {}
-            variable_keys = self.descriptor.variable_keys & self.descriptor.affects_loss_keys
-
-            for key in variable_keys:
-                grad = torch.autograd.grad(
-                    outputs=loss, inputs=data[key], retain_graph=True, allow_unused=True
-                )[0]
-
-                if grad is None:
-                    raise RuntimeError(
-                        f"Unable to compute loss gradients for layer '{key}'. "
-                        "Set has_loss=False in Descriptor if this layer does not affect loss."
-                    )
-
-                grad_flat = grad.view(grad.shape[0], -1)
-                norm_loss_grad[key] = (
-                    vector_norm(grad_flat, dim=1, ord=2, keepdim=True)
-                    .clamp(min=self.epsilon)
-                    .detach()
-                )
+            norm_loss_grad = self._calculate_loss_gradients(loss, data)
+            norm_loss_grad = self._override_loss_gradients(norm_loss_grad, loss, data)
 
         # Iterate constraints
         for constraint in self.constraints:
@@ -168,3 +151,59 @@ class ConstraintEngine:
                 total_rescale_loss += self.aggregator(data[key] * rescale * norm_loss_grad[key])
 
         return loss + total_rescale_loss
+
+    def _calculate_loss_gradients(self, loss: Tensor, data: dict[str, Tensor]) -> None:
+        """Compute and store normalized loss gradients for variable layers.
+
+        For each layer that affects the loss, computes the gradient of the loss
+        with respect to that layer's output. The gradients are normalized by their
+        vector norms plus a small epsilon to avoid division by zero.
+
+        Args:
+            loss: The original loss tensor computed from the network output.
+            data: Dictionary containing input and prediction tensors for the batch.
+        """
+        # Precompute gradients for variable layers affecting the loss
+        norm_loss_grad = {}
+
+        variable_keys = self.descriptor.variable_keys & self.descriptor.affects_loss_keys
+        for key in variable_keys:
+            if data[key].requires_grad is False:
+                raise RuntimeError(
+                    f"Layer '{key}' does not require gradients. Is this an input? "
+                    "Set constant=True in Descriptor if this layer is an input."
+                )
+
+            grad = torch.autograd.grad(
+                outputs=loss, inputs=data[key], retain_graph=True, allow_unused=True
+            )[0]
+
+            if grad is None:
+                raise RuntimeError(
+                    f"Unable to compute loss gradients for layer '{key}'. "
+                    "Set has_loss=False in Descriptor if this layer does not affect loss."
+                )
+
+            grad_flat = grad.view(grad.shape[0], -1)
+            norm_loss_grad[key] = (
+                vector_norm(grad_flat, dim=1, ord=2, keepdim=True).clamp(min=self.epsilon).detach()
+            )
+
+        return norm_loss_grad
+
+    def _override_loss_gradients(
+        self, norm_loss_grad: dict[str, Tensor], loss: Tensor, data: dict[str, Tensor]
+    ) -> dict[str, Tensor]:
+        """Override the standard normalized loss gradient computation for custom functionality.
+
+        Args:
+            norm_loss_grad: Dictionary mapping parameter or component names to normalized
+                gradient tensors.
+            loss: Scalar loss value for the current training step.
+            data: Dictionary containing the batch data used to compute the loss and any
+                constraint-related signals.
+
+        Returns:
+            A dictionary of modified normalized gradients.
+        """
+        return norm_loss_grad

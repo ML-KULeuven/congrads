@@ -28,23 +28,22 @@ from collections.abc import Callable
 from numbers import Number
 from typing import Literal
 
+import torch
 from torch import (
     Tensor,
     argsort,
     eq,
-    ge,
-    gt,
-    le,
     logical_and,
     logical_not,
     logical_or,
-    lt,
     ones,
     ones_like,
     reshape,
     sign,
+    sort,
     stack,
     tensor,
+    triu,
     unique,
     zeros_like,
 )
@@ -52,8 +51,15 @@ from torch.nn.functional import normalize
 
 from ..transformations.base import Transformation
 from ..transformations.registry import IdentityTransformation
-from ..utils.validation import validate_comparator_pytorch, validate_iterable, validate_type
-from .base import Constraint
+from ..utils.validation import validate_comparator, validate_iterable, validate_type
+from .base import Constraint, MonotonicityConstraint
+
+COMPARATOR_MAP: dict[str, Callable[[Tensor, Tensor], Tensor]] = {
+    ">": torch.gt,
+    ">=": torch.ge,
+    "<": torch.lt,
+    "<=": torch.le,
+}
 
 
 class ImplicationConstraint(Constraint):
@@ -161,8 +167,7 @@ class ScalarConstraint(Constraint):
     Args:
         operand (Union[str, Transformation]): Name of the tag or a
             transformation to apply.
-        comparator (Callable[[Tensor, Number], Tensor]): A comparison
-            function (e.g., `torch.ge`, `torch.lt`).
+        comparator (Literal[">", "<", ">=", "<="]): Comparison operator used in the constraint.
         scalar (Number): The scalar value to compare against.
         name (str, optional): A unique name for the constraint. If not
             provided, a name is auto-generated in the format
@@ -184,7 +189,7 @@ class ScalarConstraint(Constraint):
     def __init__(
         self,
         operand: str | Transformation,
-        comparator: Callable[[Tensor, Number], Tensor],
+        comparator: Literal[">", "<", ">=", "<="],
         scalar: Number,
         name: str = None,
         enforce: bool = True,
@@ -196,9 +201,7 @@ class ScalarConstraint(Constraint):
             operand (Union[str, Transformation]): Function that needs to be
                 performed on the network variables before applying the
                 constraint.
-            comparator (Callable[[Tensor, Number], Tensor]): Comparison
-                operator used in the constraint. Supported types are
-                {torch.lt, torch.le, torch.st, torch.se}.
+            comparator (Literal[">", "<", ">=", "<="]): Comparison operator used in the constraint.
             scalar (Number): Constant to compare the variable to.
             name (str, optional): A unique name for the constraint. If not
                 provided, a name is generated based on the class name and a
@@ -218,7 +221,7 @@ class ScalarConstraint(Constraint):
         """
         # Type checking
         validate_type("operand", operand, (str, Transformation))
-        validate_comparator_pytorch("comparator", comparator)
+        validate_comparator("comparator", comparator, COMPARATOR_MAP)
         validate_type("scalar", scalar, Number)
 
         # If transformation is provided, get tag name, else use IdentityTransformation
@@ -230,22 +233,22 @@ class ScalarConstraint(Constraint):
             transformation = IdentityTransformation(tag)
 
         # Compose constraint name
-        name = f"{tag} {comparator.__name__} {str(scalar)}"
+        name = f"{tag} {comparator} {str(scalar)}"
 
         # Init parent class
         super().__init__({tag}, name, enforce, rescale_factor)
 
         # Init variables
         self.tag = tag
-        self.comparator = comparator
         self.scalar = scalar
         self.transformation = transformation
 
         # Calculate directions based on constraint operator
-        if self.comparator in [lt, le]:
+        if comparator in ["<", "<="]:
             self.direction = 1
-        elif self.comparator in [gt, ge]:
+        elif comparator in [">", ">="]:
             self.direction = -1
+        self.comparator = COMPARATOR_MAP[comparator]
 
     def check_constraint(self, data: dict[str, Tensor]) -> tuple[Tensor, Tensor]:
         """Check if the scalar constraint is satisfied for a given tag.
@@ -307,8 +310,7 @@ class BinaryConstraint(Constraint):
     Args:
         operand_left (Union[str, Transformation]): Name of the left
             tag or a transformation to apply.
-        comparator (Callable[[Tensor, Number], Tensor]): A comparison
-            function (e.g., `torch.ge`, `torch.lt`).
+        comparator (Literal[">", "<", ">=", "<="]): Comparison operator used in the constraint.
         operand_right (Union[str, Transformation]): Name of the right
             tag or a transformation to apply.
         name (str, optional): A unique name for the constraint. If not
@@ -331,7 +333,7 @@ class BinaryConstraint(Constraint):
     def __init__(
         self,
         operand_left: str | Transformation,
-        comparator: Callable[[Tensor, Number], Tensor],
+        comparator: Literal[">", "<", ">=", "<="],
         operand_right: str | Transformation,
         name: str = None,
         enforce: bool = True,
@@ -342,8 +344,7 @@ class BinaryConstraint(Constraint):
         Args:
             operand_left (Union[str, Transformation]): Name of the left
                 tag or a transformation to apply.
-            comparator (Callable[[Tensor, Number], Tensor]): A comparison
-                function (e.g., `torch.ge`, `torch.lt`).
+            comparator (Literal[">", "<", ">=", "<="]): Comparison operator used in the constraint.
             operand_right (Union[str, Transformation]): Name of the right
                 tag or a transformation to apply.
             name (str, optional): A unique name for the constraint. If not
@@ -364,8 +365,7 @@ class BinaryConstraint(Constraint):
         """
         # Type checking
         validate_type("operand_left", operand_left, (str, Transformation))
-        validate_comparator_pytorch("comparator", comparator)
-        validate_comparator_pytorch("comparator", comparator)
+        validate_comparator("comparator", comparator, COMPARATOR_MAP)
         validate_type("operand_right", operand_right, (str, Transformation))
 
         # If transformation is provided, get tag name, else use IdentityTransformation
@@ -384,25 +384,25 @@ class BinaryConstraint(Constraint):
             transformation_right = IdentityTransformation(tag_right)
 
         # Compose constraint name
-        name = f"{tag_left} {comparator.__name__} {tag_right}"
+        name = f"{tag_left} {comparator} {tag_right}"
 
         # Init parent class
         super().__init__({tag_left, tag_right}, name, enforce, rescale_factor)
 
         # Init variables
-        self.comparator = comparator
         self.tag_left = tag_left
         self.tag_right = tag_right
         self.transformation_left = transformation_left
         self.transformation_right = transformation_right
 
         # Calculate directions based on constraint operator
-        if self.comparator in [lt, le]:
+        if comparator in ["<", "<="]:
             self.direction_left = 1
             self.direction_right = -1
-        else:
+        elif comparator in [">", ">="]:
             self.direction_left = -1
             self.direction_right = 1
+        self.comparator = COMPARATOR_MAP[comparator]
 
     def check_constraint(self, data: dict[str, Tensor]) -> tuple[Tensor, Tensor]:
         """Evaluate whether the binary constraint is satisfied for the current predictions.
@@ -477,7 +477,7 @@ class SumConstraint(Constraint):
     def __init__(
         self,
         operands_left: list[str | Transformation],
-        comparator: Callable[[Tensor, Number], Tensor],
+        comparator: Literal[">", "<", ">=", "<="],
         operands_right: list[str | Transformation],
         weights_left: list[Number] = None,
         weights_right: list[Number] = None,
@@ -490,8 +490,7 @@ class SumConstraint(Constraint):
         Args:
             operands_left (list[Union[str, Transformation]]): List of tags
                 or transformations on the left side.
-            comparator (Callable[[Tensor, Number], Tensor]): A comparison
-                function for the constraint.
+            comparator (Literal[">", "<", ">=", "<="]): Comparison operator used in the constraint.
             operands_right (list[Union[str, Transformation]]): List of tags
                 or transformations on the right side.
             weights_left (list[Number], optional): Weights for the left
@@ -511,8 +510,7 @@ class SumConstraint(Constraint):
         """
         # Type checking
         validate_iterable("operands_left", operands_left, (str, Transformation))
-        validate_comparator_pytorch("comparator", comparator)
-        validate_comparator_pytorch("comparator", comparator)
+        validate_comparator("comparator", comparator, COMPARATOR_MAP)
         validate_iterable("operands_right", operands_right, (str, Transformation))
         validate_iterable("weights_left", weights_left, Number, allow_none=True)
         validate_iterable("weights_right", weights_right, Number, allow_none=True)
@@ -547,15 +545,13 @@ class SumConstraint(Constraint):
         w_right = weights_right or [""] * len(tags_right)
         left_expr = " + ".join(f"{w}{n}" for w, n in zip(w_left, tags_left, strict=False))
         right_expr = " + ".join(f"{w}{n}" for w, n in zip(w_right, tags_right, strict=False))
-        comparator_name = comparator.__name__
-        name = f"{left_expr} {comparator_name} {right_expr}"
+        name = f"{left_expr} {comparator} {right_expr}"
 
         # Init parent class
         tags = set(tags_left) | set(tags_right)
         super().__init__(tags, name, enforce, rescale_factor)
 
         # Init variables
-        self.comparator = comparator
         self.tags_left = tags_left
         self.tags_right = tags_right
         self.transformations_left = transformations_left
@@ -582,12 +578,13 @@ class SumConstraint(Constraint):
             self.weights_right = ones(len(tags_right), device=self.device)
 
         # Calculate directions based on constraint operator
-        if self.comparator in [lt, le]:
+        if comparator in ["<", "<="]:
             self.direction_left = -1
             self.direction_right = 1
-        else:
+        elif comparator in [">", ">="]:
             self.direction_left = 1
             self.direction_right = -1
+        self.comparator = COMPARATOR_MAP[comparator]
 
     def check_constraint(self, data: dict[str, Tensor]) -> tuple[Tensor, Tensor]:
         """Evaluate whether the weighted sum constraint is satisfied.
@@ -673,7 +670,7 @@ class SumConstraint(Constraint):
         return output
 
 
-class MonotonicityConstraint(Constraint):
+class RankedMonotonicityConstraint(MonotonicityConstraint):
     """Constraint that enforces a monotonic relationship between two tags.
 
     This constraint ensures that the activations of a prediction tag (`tag_prediction`)
@@ -706,26 +703,21 @@ class MonotonicityConstraint(Constraint):
             name (str, optional): Custom name for the constraint. If None, a descriptive name is auto-generated.
             enforce (bool, optional): If False, the constraint is only monitored (not enforced). Defaults to True.
         """
-        # Type checking
-        validate_type("rescale_factor_lower", rescale_factor_lower, float)
-        validate_type("rescale_factor_upper", rescale_factor_upper, float)
-        validate_type("stable", stable, bool)
-        validate_type("direction", direction, str)
-
         # Compose constraint name
         if name is None:
-            name = f"{tag_prediction} monotonically {direction} by {tag_reference}"
+            name = f"{tag_prediction} monotonically (ranked) {direction} by {tag_reference}"
 
         # Init parent class
-        super().__init__({tag_prediction}, name, enforce, 1.0)
-
-        # Init variables
-        self.tag_prediction = tag_prediction
-        self.tag_reference = tag_reference
-        self.rescale_factor_lower = rescale_factor_lower
-        self.rescale_factor_upper = rescale_factor_upper
-        self.stable = stable
-        self.descending = direction == "descending"
+        super().__init__(
+            tag_prediction=tag_prediction,
+            tag_reference=tag_reference,
+            rescale_factor_lower=rescale_factor_lower,
+            rescale_factor_upper=rescale_factor_upper,
+            stable=stable,
+            direction=direction,
+            name=name,
+            enforce=enforce,
+        )
 
     def check_constraint(self, data: dict[str, Tensor]) -> tuple[Tensor, Tensor]:
         """Evaluate whether the monotonicity constraint is satisfied."""
@@ -768,30 +760,17 @@ class MonotonicityConstraint(Constraint):
         return {layer: self.compared_rankings}
 
 
-class PerGroupMonotonicityConstraint(MonotonicityConstraint):
-    """Group-wise monotonicity constraint enforced independently per group.
+class PairwiseMonotonicityConstraint(MonotonicityConstraint):
+    """Constraint that enforces a monotonic relationship between two tags.
 
-    This constraint enforces a monotonic relationship between a prediction tag
-    (`tag_prediction`) and a reference tag (`tag_reference`) **within each group**
-    identified by `tag_group_identifier`.
-
-    For each unique group identifier, the base `MonotonicityConstraint` is applied
-    independently to the corresponding subset of samples. This makes the behavior
-    semantically explicit and easy to reason about, as no interaction or ordering
-    is introduced across different groups.
-
-    Notes:
-        - Groups are treated as fully independent constraint instances.
-        - This implementation prioritizes correctness and interpretability.
-        - It may be less efficient for large numbers of groups due to explicit
-          iteration and repeated constraint evaluation.
+    This constraint ensures that the activations of a prediction tag (`tag_prediction`)
+    are monotonically ascending or descending with respect to a target tag (`tag_reference`).
     """
 
     def __init__(
         self,
         tag_prediction: str,
         tag_reference: str,
-        tag_group_identifier: str,
         rescale_factor_lower: float = 1.5,
         rescale_factor_upper: float = 1.75,
         stable: bool = True,
@@ -807,7 +786,6 @@ class PerGroupMonotonicityConstraint(MonotonicityConstraint):
         Args:
             tag_prediction (str): Name of the tag whose activations should follow the monotonic relationship.
             tag_reference (str): Name of the tag that acts as the monotonic reference.
-            tag_group_identifier (str): Name of the tag that identifies groups for separate monotonicity enforcement.
             rescale_factor_lower (float, optional): Lower bound for rescaling rank differences. Defaults to 1.5.
             rescale_factor_upper (float, optional): Upper bound for rescaling rank differences. Defaults to 1.75.
             stable (bool, optional): Whether to use stable sorting when ranking. Defaults to True.
@@ -817,7 +795,7 @@ class PerGroupMonotonicityConstraint(MonotonicityConstraint):
         """
         # Compose constraint name
         if name is None:
-            name = f"{tag_prediction} for each {tag_group_identifier} monotonically {direction} by {tag_reference}"
+            name = f"{tag_prediction} monotonically (pairwise) {direction} by {tag_reference}"
 
         # Init parent class
         super().__init__(
@@ -831,15 +809,99 @@ class PerGroupMonotonicityConstraint(MonotonicityConstraint):
             enforce=enforce,
         )
 
-        # Init variables
-        self.tag_prediction = tag_prediction
-        self.tag_reference = tag_reference
-        self.tag_group_identifier = tag_group_identifier
-
     def check_constraint(self, data: dict[str, Tensor]) -> tuple[Tensor, Tensor]:
         """Evaluate whether the monotonicity constraint is satisfied."""
+        # Select relevant columns
+        preds = self.descriptor.select(self.tag_prediction, data).squeeze(1)
+        targets = self.descriptor.select(self.tag_reference, data).squeeze(1)
+
+        # Sort targets back to original order
+        sorted_targets, idx = sort(targets, stable=self.stable, dim=0, descending=self.descending)
+        sorted_preds = preds[idx]
+
+        # Pairwise differences
+        preds_diff = sorted_preds.unsqueeze(1) - sorted_preds.unsqueeze(0)
+        targets_diff = sorted_targets.unsqueeze(1) - sorted_targets.unsqueeze(0)
+
+        # Consider only upper triangle to avoid duplicate comparisons
+        batch_size = preds.shape[0]
+        mask = triu(ones(batch_size, batch_size, dtype=torch.bool), diagonal=1)
+
+        # Pairwise violations
+        violations = (preds_diff * targets_diff < 0) & mask
+
+        # Rank difference
+        sorted_rank_diff = violations.float().sum(dim=1) - violations.float().sum(dim=0)
+
+        # Undo sorting to match original order
+        rank_diff = zeros_like(sorted_rank_diff)
+        rank_diff[idx] = sorted_rank_diff
+        rank_diff = rank_diff.unsqueeze(1)
+
+        # Rescale differences into [rescale_factor_lower, rescale_factor_upper]
+        invert_direction = -1 if self.descending else 1
+        self.compared_rankings = (
+            (rank_diff / batch_size) * (self.rescale_factor_upper - self.rescale_factor_lower)
+            + self.rescale_factor_lower * sign(rank_diff)
+        ) * invert_direction
+
+        # Calculate satisfaction
+        incorrect_rankings = eq(self.compared_rankings, 0).float()
+
+        return incorrect_rankings, ones_like(incorrect_rankings)
+
+    def calculate_direction(self, data: dict[str, Tensor]) -> dict[str, Tensor]:
+        """Calculates ranking adjustments for monotonicity enforcement."""
+        layer, _ = self.descriptor.location(self.tag_prediction)
+        return {layer: self.compared_rankings}
+
+
+class PerGroupMonotonicityConstraint(Constraint):
+    """Applies a monotonicity constraint independently per group of samples.
+
+    This class wraps an existing `MonotonicityConstraint` instance (`base`) and
+    enforces it **separately** for each unique group defined by `tag_group`.
+
+    Each group is treated as an independent mini-batch:
+    - The base constraint is applied to the group's subset of data.
+    - Violations and directions are computed per group and then reassembled
+      into the original batch order.
+
+    This is an explicit alternative to :class:`EncodedGroupedMonotonicityConstraint`,
+    which enforces the same logic using vectorized interval encoding.
+    """
+
+    def __init__(
+        self,
+        base: MonotonicityConstraint,
+        tag_group: str,
+        name: str | None = None,
+    ):
+        """Initializes the per-group monotonicity constraint.
+
+        Args:
+            base (MonotonicityConstraint): A pre-configured monotonicity constraint to apply per group.
+            tag_group (str): Column/tag name that identifies groups.
+            name (str | None, optional): Custom name for the constraint. Defaults to
+                f"{base.tag_prediction} for each {tag_group} ...".
+        """
+        # Compose constraint name
+        if name is None:
+            name = base.name.replace(
+                base.tag_prediction, f"{base.tag_prediction} for each {tag_group}", 1
+            )
+
+        # Init parent class
+        super().__init__(base.tags, name, base.enforce, base.rescale_factor)
+
+        # Init variables
+        self.base = base
+        self.tag_group = tag_group
+
+    def check_constraint(self, data: dict[str, Tensor]) -> tuple[Tensor, Tensor]:
+        """Evaluate whether the monotonicity constraint is satisfied per group."""
         # Select group identifiers and convert to unique list
-        group_identifiers = self.descriptor.select(self.tag_group_identifier, data)
+        group_identifiers = self.descriptor.select(self.tag_group, data)
         unique_group_identifiers = unique(group_identifiers, sorted=False).tolist()
 
         # Initialize checks and directions
@@ -847,8 +909,8 @@ class PerGroupMonotonicityConstraint(MonotonicityConstraint):
         self.directions = zeros_like(group_identifiers, device=self.device)
 
         # Get prediction and target keys
-        preds_key, _ = self.descriptor.location(self.tag_prediction)
-        targets_key, _ = self.descriptor.location(self.tag_reference)
+        preds_key, _ = self.descriptor.location(self.base.tag_prediction)
+        targets_key, _ = self.descriptor.location(self.base.tag_reference)
 
         for group_identifier in unique_group_identifiers:
             # Create mask for the samples in this group
@@ -861,98 +923,73 @@ class PerGroupMonotonicityConstraint(MonotonicityConstraint):
             }
 
             # Call super on the mini-batch
-            checks[group_mask], _ = super().check_constraint(group_data)
-            self.directions[group_mask] = self.compared_rankings
+            checks[group_mask], _ = self.base.check_constraint(group_data)
+            self.directions[group_mask] = self.base.compared_rankings
 
         return checks, ones_like(checks)
 
     def calculate_direction(self, data: dict[str, Tensor]) -> dict[str, Tensor]:
         """Calculates ranking adjustments for monotonicity enforcement."""
-        layer, _ = self.descriptor.location(self.tag_prediction)
+        layer, _ = self.descriptor.location(self.base.tag_prediction)
         return {layer: self.directions}
 
 
-class EncodedGroupedMonotonicityConstraint(MonotonicityConstraint):
-    """Group-wise monotonicity constraint enforced via rank encoding.
+class EncodedGroupedMonotonicityConstraint(Constraint):
+    """Applies a base monotonicity constraint to groups via interval encoding.
 
     This constraint enforces a monotonic relationship between a prediction tag
-    (`tag_prediction`) and a reference tag (`tag_reference`) within each group
-    identified by `tag_group_identifier`, using a fully vectorized approach.
+    (`base.tag_prediction`) and a reference tag (`base.tag_reference`) for
+    each group defined by `tag_group`.
 
-    Group independence is achieved by encoding the group identifiers into the
-    prediction and reference values via large offsets, effectively separating
-    the rank spaces of different groups. This allows the base
-    `MonotonicityConstraint` to be applied once to the entire batch without
-    explicit per-group iteration.
+    Instead of looping over groups, each group's predictions and targets are
+    shifted by a large offset to place them in **non-overlapping intervals**.
+    This allows the base constraint to be applied in a single, vectorized
+    operation.
 
-    Notes:
-        - Groups are isolated implicitly through rank-space separation.
-        - The logic is less explicit than per-group evaluation and relies on
-            offset-based rank encoding for correctness.
-        - This constraint might cause floating point errors if
-            the prediction or target range is very large.
+    This is a vectorized alternative to :class:`PerGroupMonotonicityConstraint`,
+    which enforces the same logic via explicit per-group iteration.
     """
 
     def __init__(
         self,
-        tag_prediction: str,
-        tag_reference: str,
-        tag_group_identifier: str,
-        rescale_factor_lower: float = 1.5,
-        rescale_factor_upper: float = 1.75,
-        stable: bool = True,
-        direction: Literal["ascending", "descending"] = "ascending",
-        name: str = None,
-        enforce: bool = True,
+        base: MonotonicityConstraint,
+        tag_group: str,
+        name: str | None = None,
     ):
-        """Constraint that enforces monotonicity on a predicted output.
-
-        This constraint ensures that the activations of a prediction tag (`tag_prediction`)
-        are monotonically ascending or descending with respect to a target tag (`tag_reference`).
+        """Initializes the encoded grouped monotonicity constraint.
 
         Args:
-            tag_prediction (str): Name of the tag whose activations should follow the monotonic relationship.
-            tag_reference (str): Name of the tag that acts as the monotonic reference.
-            tag_group_identifier (str): Name of the tag that identifies groups for separate monotonicity enforcement.
-            rescale_factor_lower (float, optional): Lower bound for rescaling rank differences. Defaults to 1.5.
-            rescale_factor_upper (float, optional): Upper bound for rescaling rank differences. Defaults to 1.75.
-            stable (bool, optional): Whether to use stable sorting when ranking. Defaults to True.
-            direction (str, optional): Direction of monotonicity to enforce, either 'ascending' or 'descending'. Defaults to 'ascending'.
-            name (str, optional): Custom name for the constraint. If None, a descriptive name is auto-generated.
-            enforce (bool, optional): If False, the constraint is only monitored (not enforced). Defaults to True.
+            base (MonotonicityConstraint): The base constraint to apply to each group.
+            tag_group (str): Column/tag name identifying groups in the batch.
+            name (str | None, optional): Optional custom name for this constraint.
+                If None, generates a descriptive name based on `base.name`.
         """
         # Compose constraint name
         if name is None:
-            name = f"{tag_prediction} for each {tag_group_identifier} monotonically {direction} by {tag_reference}"
+            name = base.name.replace(
+                base.tag_prediction,
+                f"{base.tag_prediction} for each {tag_group} (encoded)",
+                1,
+            )
 
         # Init parent class
-        super().__init__(
-            tag_prediction=tag_prediction,
-            tag_reference=tag_reference,
-            rescale_factor_lower=rescale_factor_lower,
-            rescale_factor_upper=rescale_factor_upper,
-            stable=stable,
-            direction=direction,
-            name=name,
-            enforce=enforce,
-        )
+        super().__init__(base.tags, name, base.enforce, base.rescale_factor)
 
         # Init variables
-        self.tag_prediction = tag_prediction
-        self.tag_reference = tag_reference
-        self.tag_group_identifier = tag_group_identifier
+        self.base = base
+        self.tag_group = tag_group
 
         # Initialize negation factor based on direction
-        self.negation = 1 if direction == "ascending" else -1
+        self.negation = 1 if self.base.direction == "ascending" else -1
 
     def check_constraint(self, data: dict[str, Tensor]) -> tuple[Tensor, Tensor]:
-        """Evaluate whether the monotonicity constraint is satisfied."""
+        """Evaluate whether the monotonicity constraint is satisfied by mapping each group on a non-overlapping interval."""
         # Get data and keys
-        ids = self.descriptor.select(self.tag_group_identifier, data)
-        preds = self.descriptor.select(self.tag_prediction, data)
-        targets = self.descriptor.select(self.tag_reference, data)
-        preds_key, _ = self.descriptor.location(self.tag_prediction)
-        targets_key, _ = self.descriptor.location(self.tag_reference)
+        ids = self.descriptor.select(self.tag_group, data)
+        preds = self.descriptor.select(self.base.tag_prediction, data)
+        targets = self.descriptor.select(self.base.tag_reference, data)
+        preds_key, _ = self.descriptor.location(self.base.tag_prediction)
+        targets_key, _ = self.descriptor.location(self.base.tag_reference)
 
         new_preds = preds + ids * (preds.max() - preds.min() + 1)
         new_targets = targets + self.negation * ids * (targets.max() - targets.min() + 1)
@@ -961,14 +998,14 @@ class EncodedGroupedMonotonicityConstraint(MonotonicityConstraint):
         new_data = {preds_key: new_preds, targets_key: new_targets}
 
         # Call super on the adjusted batch
-        checks, _ = super().check_constraint(new_data)
-        self.directions = self.compared_rankings
+        checks, _ = self.base.check_constraint(new_data)
+        self.directions = self.base.compared_rankings
 
         return checks, ones_like(checks)
 
     def calculate_direction(self, data: dict[str, Tensor]) -> dict[str, Tensor]:
         """Calculates ranking adjustments for monotonicity enforcement."""
-        layer, _ = self.descriptor.location(self.tag_prediction)
+        layer, _ = self.descriptor.location(self.base.tag_prediction)
         return {layer: self.directions}
 
 
@@ -1088,9 +1125,9 @@ class ANDConstraint(Constraint):
 
             for layer, dir in direction.items():
                 if layer not in total_direction:
-                    total_direction[layer] = satisfaction.unsqueeze(1) * dir
+                    total_direction[layer] = satisfaction * dir
                 else:
-                    total_direction[layer] += satisfaction.unsqueeze(1) * dir
+                    total_direction[layer] += satisfaction * dir
 
         return total_direction
 
@@ -1211,8 +1248,8 @@ class ORConstraint(Constraint):
 
             for layer, dir in direction.items():
                 if layer not in total_direction:
-                    total_direction[layer] = satisfaction.unsqueeze(1) * dir
+                    total_direction[layer] = satisfaction * dir
                 else:
-                    total_direction[layer] += satisfaction.unsqueeze(1) * dir
+                    total_direction[layer] += satisfaction * dir
 
         return total_direction

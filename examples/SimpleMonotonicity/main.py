@@ -14,7 +14,7 @@ from congrads.constraints.base import Constraint
 from congrads.constraints.registry import (
     ANDConstraint,
     ImplicationConstraint,
-    MonotonicityConstraint,
+    RankedMonotonicityConstraint,
     ScalarConstraint,
 )
 from congrads.core.congradscore import CongradsCore
@@ -80,10 +80,10 @@ def main():
     constraints = [
         ImplicationConstraint(
             head=ANDConstraint(
-                ScalarConstraint("x", torch.gt, 0.3),
-                ScalarConstraint("x", torch.le, 0.6),
+                ScalarConstraint("x", ">", 0.3),
+                ScalarConstraint("x", "<=", 0.6),
             ),
-            body=MonotonicityConstraint("y", "x"),
+            body=RankedMonotonicityConstraint("y", "x"),
         )
     ]
 
@@ -114,7 +114,7 @@ def main():
         metric_manager=metric_manager,
         callback_manager=callback_manager,
         device=device,
-        enforce_all=False,
+        enforce_all=True,
     )
 
     # Start/resume training
