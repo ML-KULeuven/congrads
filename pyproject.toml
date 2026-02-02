@@ -1,6 +1,6 @@
 [project]
 name = "congrads"
-version = "0.3.1"
+version = "0.3.1.post1"
 description = "A toolbox for using Constraint Guided Gradient Descent when training neural networks."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -37,7 +37,6 @@ dev = [
     "sphinx>=8.2.3",
     "sphinx-gallery>=0.20.0",
     "sphinx-rtd-theme>=3.0.2",
-    "tox>=4.30.2",
     "twine>=6.2.0",
 ]
 
@@ -94,31 +93,3 @@ docstring-code-line-length = "dynamic"
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
-
-[tool.tox]
-envlist = ["py{311,312,313}-{latest,minimum}"]
-
-[tool.tox.env_run_base]
-description = "Run tests with latest dependencies"
-deps = [
-    "pytest",
-    "pytest-cov"
-]
-commands = [
-    ["pytest", "--cov=src/congrads", "tests/"]
-]
-extras = [ "examples" ]
-
-[tool.tox.env.latest]
-description = "Run tests with latest dependencies"
-
-[tool.tox.env.minimum]
-description = "Run tests with minimum dependencies"
-deps = [
-    "-c constraints-min.txt",
-    "pytest",
-    "pytest-cov"
-]
-
-# Optional: ensure coverage is reported for all envs
-skip_missing_interpreters = true

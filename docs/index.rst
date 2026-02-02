@@ -60,6 +60,7 @@ Where to start
 
 * :ref:`Quick-start guide <start>`
 * :ref:`Core concepts <concepts>`
+* :ref:`Examples <examples>`
 * :ref:`API documentation <api>`
 
 Research
