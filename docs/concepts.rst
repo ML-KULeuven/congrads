@@ -14,7 +14,7 @@ PyTorch's `Dataset` class provides a standardized way to represent datasets, mak
 By implementing custom dataset classes that inherit from `torch.utils.data.Dataset`, users can define how data is accessed, transformed, and batched. 
 This ensures compatibility with PyTorch's `DataLoader`, enabling seamless integration into machine learning pipelines with minimal effort.
 
-We provide two built-in datasets: :meth:`Bias Correction <congrads.datasets.BiasCorrection>` and :meth:`Family Income <congrads.datasets.FamilyIncome>`, both featuring automatic downloading and built-in preprocessing transformations.
+We provide some built-in datasets, amongst others :meth:`Bias Correction <congrads.datasets.BiasCorrection>` and :meth:`Family Income <congrads.datasets.FamilyIncome>`, both featuring automatic downloading and built-in preprocessing transformations.
 These datasets were initially used to evaluate the feasibility of the Constraint-Guided Gradient Descent (CGGD) technique (see the `manuscript`_ for details).
 
 .. _manuscript: https://www.sciencedirect.com/science/article/abs/pii/S0925231223007592
@@ -26,6 +26,9 @@ These datasets were initially used to evaluate the feasibility of the Constraint
 
     data = FamilyIncome("./datasets", preprocess_FamilyIncome, download=True)
 
+
+When using your own dataset, ensure that it extends the PyTorch `Dataset <https://pytorch.org/docs/stable/data.html#torch.utils.data.Dataset>`_ class and implements the :meth:`__len__() <torch.utils.data.Dataset.__len__>` and :meth:`__getitem__() <torch.utils.data.Dataset.__getitem__>` methods.
+Alse make sure that the dataset returns data in the form of a dictionary with keys "input" and "target", representing the input features and target labels, respectively (additional keys are allowed).
 
 The provided function ```split_data_loaders``` can be used to divide the data into three parts with configurable ratios: for training, validation and testing.
 The CongradsCore requires these loaders to function. You can also write your own function to divide the data into loaders.
@@ -82,7 +85,7 @@ Descriptor
 The descriptor class forms a translation manager that will attach human-readable names to specific points in your neural network.
 It represents your problem and has the structure of the neural network, while having names that relate to your dataset.
 
-The :meth:`descriptor.add(layer, index, name, ...) <congrads.descriptor.add>` method is used to reference specific components of the neural network. 
+The :meth:`descriptor.add(layer, tag, index, ...) <congrads.descriptor.add>` method is used to reference specific components of the neural network. 
 The layer argument identifies a network section based on predefined dictionary keys, while index specifies a particular neuron within that layer. 
 You must assign a name to each neuron (dataset column) that you plan to attach a constraints on so it can be referenced easily.
 
@@ -100,11 +103,11 @@ To exclude a specific neuron from the learning process, set its attribute to ```
     from congrads.descriptor import Descriptor
 
     descriptor = Descriptor()
-    descriptor.add("input", 0, "Date", constant=True)
-    descriptor.add("output", 0, "Minimum temperature")
-    descriptor.add("output", 1, "Maximum temperature")
-    descriptor.add("output", 2, "Normalized minimum sunshine")
-    descriptor.add("output", 3, "Normalized maximum sunshine")
+    descriptor.add("input", "Date", 0, constant=True)
+    descriptor.add("output", "Minimum temperature", 0)
+    descriptor.add("output", "Maximum temperature", 1)
+    descriptor.add("output", "Normalized minimum sunshine", 2)
+    descriptor.add("output", "Normalized maximum sunshine", 3)
 
 Constraints
 -----------
@@ -201,24 +204,84 @@ It brings together these elements to form a cohesive framework that ensures smoo
 .. code-block:: python
 
     core = CongradsCore(
-        descriptor,
-        constraints,
-        loaders,
-        network,
-        criterion,
-        optimizer,
-        metric_manager,
-        device,
+        descriptor=descriptor,
+        constraints=constraints,
+        dataloader_train=loaders[0],
+        dataloader_valid=loaders[1],
+        dataloader_test=loaders[2],
+        network=network,
+        criterion=criterion,
+        optimizer=optimizer,
+        metric_manager=metric_manager,
+        device=device,
     )
 
 You can then call :meth:`core.fit(...) <congrads.core.CongradsCore.fit>` to start the training process.
-Attach functions via the hooks like ```on_epoch_end```, ```on_train_end``` to execute your custom code at certain points in the training process.
 
 .. code-block:: python
 
     core.fit(
         start_epoch=0,
-        max_epochs=50,
-        on_epoch_end=on_epoch_end,
-        on_train_end=on_train_end,
+        max_epochs=50
     )
+
+
+Callbacks
+---------
+
+Callbacks provide a modular and flexible mechanism to inject custom logic at various stages of the training, validation, or testing lifecycle.
+They are a key part of the Congrads toolbox, allowing you to extend the framework with logging, custom metric calculation, or any other behavior that should occur automatically during training.
+
+For examples and inspiration, please refer to the callbacks registry in the repository: `callback registry`__.
+
+__ https://github.com/ML-KULeuven/congrads/blob/main/src/congrads/callbacks/registry.py
+
+High-Level Concept
+^^^^^^^^^^^^^^^^^^
+
+A callback is a container for one or more operations that are executed at specific stages of the training pipeline.
+Operations are stateless units of computation that take the current event data and shared context and return outputs that can modify the event-local data.
+
+The framework defines multiple stages where callbacks can be executed, such as:
+
+- on_train_start / on_train_end
+- on_epoch_start / on_epoch_end
+- on_batch_start / on_batch_end
+- on_train_batch_start / on_train_batch_end
+- on_valid_batch_start / on_valid_batch_end
+- on_test_batch_start / on_test_batch_end
+- after_train_forward / after_valid_forward / after_test_forward
+
+This allows callbacks to act at different levels of granularity, from global training events to individual batch updates or network forward passes.
+
+Data Available in Callbacks
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Each callback receives two dictionaries at every stage:
+
+1. Event-local data (data)
+Contains information specific to the current batch, or epoch.
+
+- Within a batch, this dictionary will include the input data, target labels, model outputs, and any other information that was provided from the dataset.
+- Outside of a batch (e.g., on epoch start/end), this dictionary may be empty or contain other statistics such as the epoch number.
+
+2. Shared context (ctx)
+
+A persistent dictionary shared across all callbacks and stages.
+
+Useful for storing stateful information that needs to be accessed or modified across stages, batches, or even callbacks.
+
+Examples:
+
+- Global training counters
+- Flags or configuration values that need to be accessible throughout the training lifecycle
+- Accumulated statistics that span multiple batches or epochs
+
+Operations
+^^^^^^^^^^
+
+An operation is a self-contained piece of logic that is executed within a callback stage.
+Operations are designed to be stateless, meaning they do not inherently hold any training state themselves—they operate on the data and ctx dictionaries and return a dictionary of outputs.
+
+Operations are registered to a callback and executed in the order they were added for a given stage.
+The outputs of each operation are merged into the event-local data, with warnings issued if keys are overwritten.

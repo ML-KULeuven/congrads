@@ -3,6 +3,21 @@
 API documentation
 =================
 
+This section documents the public API of Congrads.
+
+Callbacks
+---------
+
+.. automodule:: congrads.callbacks.base
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: congrads.callbacks.registry
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Checkpoints
 -----------
 
@@ -14,7 +29,7 @@ Checkpoints
 Constraints
 -----------
 
-.. automodule:: congrads.constraints
+.. automodule:: congrads.constraints.registry
    :members:
    :undoc-members:
    :show-inheritance:
@@ -22,7 +37,22 @@ Constraints
 Core
 ----
 
-.. automodule:: congrads.core
+.. automodule:: congrads.core.batch_runner
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: congrads.core.congradscore
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: congrads.core.constraint_engine
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: congrads.core.epoch_runner
    :members:
    :undoc-members:
    :show-inheritance:
@@ -30,7 +60,7 @@ Core
 Datasets
 --------
 
-.. automodule:: congrads.datasets
+.. automodule:: congrads.datasets.registry
    :members:
    :undoc-members:
    :show-inheritance:
@@ -54,7 +84,7 @@ Metrics
 Networks
 --------
 
-.. automodule:: congrads.networks
+.. automodule:: congrads.networks.registry
    :members:
    :undoc-members:
    :show-inheritance:
@@ -62,15 +92,30 @@ Networks
 Transformations
 ---------------
 
-.. automodule:: congrads.transformations
+.. automodule:: congrads.transformations.base
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: congrads.transformations.registry
    :members:
    :undoc-members:
    :show-inheritance:
 
 Utils
------
+---------------
 
-.. automodule:: congrads.utils
+.. automodule:: congrads.utils.preprocessors
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: congrads.utils.utility
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: congrads.utils.validation
    :members:
    :undoc-members:
    :show-inheritance:

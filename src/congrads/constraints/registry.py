@@ -54,6 +54,20 @@ from ..transformations.registry import IdentityTransformation
 from ..utils.validation import validate_comparator, validate_iterable, validate_type
 from .base import Constraint, MonotonicityConstraint
 
+__all__ = [
+    "ImplicationConstraint",
+    "ScalarConstraint",
+    "BinaryConstraint",
+    "SumConstraint",
+    "RankedMonotonicityConstraint",
+    "PairwiseMonotonicityConstraint",
+    "PerGroupMonotonicityConstraint",
+    "EncodedGroupedMonotonicityConstraint",
+    "ANDConstraint",
+    "ORConstraint",
+]
+
+
 COMPARATOR_MAP: dict[str, Callable[[Tensor, Tensor], Tensor]] = {
     ">": torch.gt,
     ">=": torch.ge,
@@ -121,6 +135,7 @@ class ImplicationConstraint(Constraint):
                 constraint (1 if satisfied, 0 otherwise).
                 - head_satisfaction: Tensor indicating satisfaction of the
                 head constraint alone.
+
         """
         # Check satisfaction of head and body constraints
         head_satisfaction, _ = self.head.check_constraint(data)
@@ -420,6 +435,7 @@ class BinaryConstraint(Constraint):
                 (1 for satisfied, 0 for violated) for each sample.
                 - mask (Tensor): Tensor of ones with the same shape as `result`,
                 used for constraint aggregation.
+
         """
         # Select relevant columns
         selection_left = self.descriptor.select(self.tag_left, data)
@@ -601,6 +617,7 @@ class SumConstraint(Constraint):
                 - result (Tensor): Binary tensor indicating whether the constraint
                 is satisfied (1) or violated (0) for each sample.
                 - mask (Tensor): Tensor of ones, used for constraint aggregation.
+
         """
 
         def compute_weighted_sum(
@@ -825,7 +842,7 @@ class PairwiseMonotonicityConstraint(MonotonicityConstraint):
 
         # Consider only upper triangle to avoid duplicate comparisons
         batch_size = preds.shape[0]
-        mask = triu(ones(batch_size, batch_size, dtype=torch.bool), diagonal=1)
+        mask = triu(ones(batch_size, batch_size, dtype=torch.bool, device=preds.device), diagonal=1)
 
         # Pairwise violations
         violations = (preds_diff * targets_diff < 0) & mask
@@ -864,8 +881,7 @@ class PerGroupMonotonicityConstraint(Constraint):
 
     Each group is treated as an independent mini-batch:
     - The base constraint is applied to the group's subset of data.
-    - Violations and directions are computed per group and then reassembled
-      into the original batch order.
+    - Violations and directions are computed per group and then reassembled into the original batch order.
 
     This is an explicit alternative to :class:`EncodedGroupedMonotonicityConstraint`,
     which enforces the same logic using vectorized interval encoding.
@@ -986,13 +1002,16 @@ class EncodedGroupedMonotonicityConstraint(Constraint):
         """Evaluate whether the monotonicity constraint is satisfied by mapping each group on a non-overlapping interval."""
         # Get data and keys
         ids = self.descriptor.select(self.tag_group, data)
-        preds = self.descriptor.select(self.base.tag_prediction, data)
-        targets = self.descriptor.select(self.base.tag_reference, data)
         preds_key, _ = self.descriptor.location(self.base.tag_prediction)
         targets_key, _ = self.descriptor.location(self.base.tag_reference)
 
-        new_preds = preds + ids * (preds.max() - preds.min() + 1)
-        new_targets = targets + self.negation * ids * (targets.max() - targets.min() + 1)
+        preds = data[preds_key]
+        targets = data[targets_key]
+
+        new_preds = preds + ids * (preds.amax(dim=0) - preds.amin(dim=0) + 1)
+        new_targets = targets + self.negation * ids * (
+            targets.amax(dim=0) - targets.amin(dim=0) + 1
+        )
 
         # Create new batch for child constraint
         new_data = {preds_key: new_preds, targets_key: new_targets}
@@ -1018,13 +1037,14 @@ class ANDConstraint(Constraint):
     are satisfied (elementwise logical AND).
     * The corrective direction is computed by weighting each sub-constraint's
     direction with its satisfaction mask and summing across all sub-constraints.
+
     """
 
     def __init__(
         self,
         *constraints: Constraint,
         name: str = None,
-        monitor_only: bool = False,
+        enforce: bool = False,
         rescale_factor: Number = 1.5,
     ) -> None:
         """A composite constraint that enforces the logical AND of multiple constraints.
@@ -1041,7 +1061,7 @@ class ANDConstraint(Constraint):
             name (str, optional): A custom name for this constraint. If not provided,
                 the name will be composed from the sub-constraint names joined with
                 " AND ".
-            monitor_only (bool, optional): If True, the constraint will be monitored
+            enforce (bool, optional): If True, the constraint will be monitored
                 but not enforced. Defaults to False.
             rescale_factor (Number, optional): A scaling factor applied when rescaling
                 corrections. Defaults to 1.5.
@@ -1062,7 +1082,7 @@ class ANDConstraint(Constraint):
         super().__init__(
             set().union(*(constraint.tags for constraint in constraints)),
             name,
-            monitor_only,
+            enforce,
             rescale_factor,
         )
 
@@ -1083,6 +1103,7 @@ class ANDConstraint(Constraint):
                 * `mask`: A tensor of ones with the same shape as
                 `total_satisfaction`. Typically used as a weighting mask
                 in downstream processing.
+
         """
         total_satisfaction: Tensor = None
         total_mask: Tensor = None
@@ -1141,13 +1162,14 @@ class ORConstraint(Constraint):
     is satisfied (elementwise logical OR).
     * The corrective direction is computed by weighting each sub-constraint's
     direction with its satisfaction mask and summing across all sub-constraints.
+
     """
 
     def __init__(
         self,
         *constraints: Constraint,
         name: str = None,
-        monitor_only: bool = False,
+        enforce: bool = False,
         rescale_factor: Number = 1.5,
     ) -> None:
         """A composite constraint that enforces the logical OR of multiple constraints.
@@ -1164,7 +1186,7 @@ class ORConstraint(Constraint):
             name (str, optional): A custom name for this constraint. If not provided,
                 the name will be composed from the sub-constraint names joined with
                 " OR ".
-            monitor_only (bool, optional): If True, the constraint will be monitored
+            enforce (bool, optional): If True, the constraint will be monitored
                 but not enforced. Defaults to False.
             rescale_factor (Number, optional): A scaling factor applied when rescaling
                 corrections. Defaults to 1.5.
@@ -1185,7 +1207,7 @@ class ORConstraint(Constraint):
         super().__init__(
             set().union(*(constraint.tags for constraint in constraints)),
             name,
-            monitor_only,
+            enforce,
             rescale_factor,
         )
 
@@ -1206,6 +1228,7 @@ class ORConstraint(Constraint):
                 * `mask`: A tensor of ones with the same shape as
                 `total_satisfaction`. Typically used as a weighting mask
                 in downstream processing.
+
         """
         total_satisfaction: Tensor = None
         total_mask: Tensor = None

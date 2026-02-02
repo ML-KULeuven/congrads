@@ -7,6 +7,8 @@ from torch import Tensor
 from ..utils.validation import validate_callable, validate_type
 from .base import Transformation
 
+__all__ = ["IdentityTransformation", "DenormalizeMinMax", "ApplyOperator"]
+
 
 class IdentityTransformation(Transformation):
     """A transformation that returns the input unchanged."""

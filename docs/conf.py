@@ -42,6 +42,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
+    "myst_nb",
 ]
 
 intersphinx_mapping = {
@@ -49,8 +50,14 @@ intersphinx_mapping = {
     "pytorch": ("https://pytorch.org/docs/stable", None),
     "numpy": ("https://numpy.org/doc/stable", None),
     "pandas": ("https://pandas.pydata.org/docs", None),
+    "IPython": ("https://ipython.readthedocs.io/en/stable/", None),
+    "matplotlib": ("https://matplotlib.org/", None),
 }
 intersphinx_disabled_domains = ["std"]
+
+source_suffix = {
+    ".rst": "restructuredtext",
+}
 
 templates_path = ["_templates"]
 
@@ -75,3 +82,6 @@ html_theme_options = {
     "logo_only": False,
     "style_nav_header_background": "#cc5353",
 }
+
+
+nbsphinx_execute = "never"

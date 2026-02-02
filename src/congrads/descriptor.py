@@ -14,6 +14,8 @@ from torch import Tensor
 
 from .utils.validation import validate_type
 
+__all__ = ["Descriptor"]
+
 
 class Descriptor:
     """A class to manage the mapping between tags.

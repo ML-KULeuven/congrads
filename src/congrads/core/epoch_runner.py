@@ -17,6 +17,8 @@ from tqdm import tqdm
 
 from ..core.batch_runner import BatchRunner
 
+__all__ = ["EpochRunner"]
+
 
 class EpochRunner:
     """Runs full epochs over DataLoaders.

@@ -27,6 +27,8 @@ from torch import Tensor
 from congrads.descriptor import Descriptor
 from congrads.utils.validation import validate_iterable, validate_type
 
+__all__ = ["Constraint", "MonotonicityConstraint"]
+
 
 class Constraint(ABC):
     """Abstract base class for defining constraints applied to neural networks.

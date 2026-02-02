@@ -45,11 +45,17 @@ Congrads requires minimal conditions to integrate your code with the toolbox.
 You have to structure your code to comply with the following:
 
 * Your data needs to be provided as a PyTorch Dataset class
+* Your dataset needs to output a dictionary having key "input" and "target"
 * Your network (model) needs to extend torch.nn.Module
 * Your network (model) needs to output a dictionary having key "output"
 
 Example
 -------
+Here, we compose an implementation for a simple regression task using Congrads.
+We want to predict normalized daily maximum and minimum temperatures based on 25 input features.
+We already know certain things in advance that the predictions must satisfy, we already have some domain knowledge.
+For example, we know that the daily maximum temperature must always be larger than or equal to the daily minimum temperature.
+By using Congrads, we can easily integrate these constraints into our training procedure to improve the model's accuracy and reliability.
 
 1. First, select the device to run your code on with.
 
@@ -91,8 +97,8 @@ Example
 .. code-block:: python
 
     descriptor = Descriptor()
-    descriptor.add("output", 0, "Tmax")
-    descriptor.add("output", 1, "Tmin")
+    descriptor.add("output", "Tmax", 0)
+    descriptor.add("output", "Tmin", 1)
 
 6. Define your constraints on the network.
 
@@ -101,28 +107,25 @@ Example
     Constraint.descriptor = descriptor
     Constraint.device = device
     constraints = [
-        ScalarConstraint("Tmin", ge, 0),
-        ScalarConstraint("Tmin", le, 1),
-        ScalarConstraint("Tmax", ge, 0),
-        ScalarConstraint("Tmax", le, 1),
-        BinaryConstraint("Tmax", gt, "Tmin"),
+        ScalarConstraint("Tmin", ">=", 0),
+        ScalarConstraint("Tmin", "<=", 1),
+        ScalarConstraint("Tmax", ">=", 0),
+        ScalarConstraint("Tmax", "<=", 1),
+        BinaryConstraint("Tmax", ">", "Tmin"),
     ]
 
-7. Instantiate metric manager and core, and start the training.
+7. Instantiate core, and start the training.
 
 .. code-block:: python
 
-    metric_manager = MetricManager()
     core = CongradsCore(
-        descriptor,
-        constraints,
-        loaders,
-        network,
-        criterion,
-        optimizer,
-        metric_manager,
-        device,
-        checkpoint_manager,
+        descriptor=descriptor,
+        constraints=constraints,
+        loaders=loaders,
+        network=network,
+        criterion=criterion,
+        optimizer=optimizer,
+        device=device,
     )
 
     core.fit(max_epochs=50)

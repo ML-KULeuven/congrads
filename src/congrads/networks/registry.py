@@ -3,6 +3,8 @@
 from torch import Tensor
 from torch.nn import Linear, Module, ReLU, Sequential
 
+__all__ = ["MLPNetwork"]
+
 
 class MLPNetwork(Module):
     """A multi-layer perceptron (MLP) neural network with configurable hidden layers."""

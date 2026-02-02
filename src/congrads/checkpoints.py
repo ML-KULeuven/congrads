@@ -16,6 +16,8 @@ from torch.optim import Optimizer
 from .metrics import MetricManager
 from .utils.validation import validate_callable, validate_type
 
+__all__ = ["CheckpointManager"]
+
 
 class CheckpointManager:
     """Manage saving and loading checkpoints for PyTorch models and optimizers.

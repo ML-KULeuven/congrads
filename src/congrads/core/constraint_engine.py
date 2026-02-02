@@ -14,6 +14,8 @@ from ..constraints.base import Constraint
 from ..descriptor import Descriptor
 from ..metrics import MetricManager
 
+__all__ = ["ConstraintEngine"]
+
 
 class ConstraintEngine:
     """Manages constraint evaluation and enforcement for a neural network.

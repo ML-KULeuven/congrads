@@ -18,6 +18,8 @@ from ..callbacks.base import CallbackManager
 from ..core.constraint_engine import ConstraintEngine
 from ..metrics import MetricManager
 
+__all__ = ["BatchRunner"]
+
 
 class BatchRunner:
     """Executes a single batch for training, validation, or testing.

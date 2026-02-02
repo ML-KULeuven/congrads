@@ -6,6 +6,8 @@ from torch import Tensor
 
 from ..utils.validation import validate_type
 
+__all__ = ["Transformation"]
+
 
 class Transformation(ABC):
     """Abstract base class for tag data transformations."""

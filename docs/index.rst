@@ -113,4 +113,5 @@ Contents
    Home <self>
    start
    concepts
+   examples
    api

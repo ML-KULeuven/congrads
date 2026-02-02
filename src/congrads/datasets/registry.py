@@ -5,9 +5,11 @@ downloading, loading, and transforming specific datasets where applicable.
 
 Classes:
 
-    - SyntheticClusterDataset: A dataset class for generating synthetic clustered 2D data with labels.
     - BiasCorrection: A dataset class for the Bias Correction dataset focused on temperature forecast data.
     - FamilyIncome: A dataset class for the Family Income and Expenditure dataset.
+    - SectionedGaussians: A synthetic dataset generating smoothly varying Gaussian signals across multiple sections.
+    - SyntheticMonotonicity: A synthetic 1D dataset with monotone ground truth (log(1+x)), plus configurable structured noise.
+    - SyntheticClusters: A dataset class for generating synthetic clustered 2D data with labels.
 
 Each dataset class provides methods for downloading the data
 (if not already available or synthetic), checking the integrity of the dataset, loading
@@ -30,6 +32,14 @@ from torchvision.datasets.utils import (
     check_integrity,
     download_and_extract_archive,
 )
+
+__all__ = [
+    "BiasCorrection",
+    "FamilyIncome",
+    "SectionedGaussians",
+    "SyntheticMonotonicity",
+    "SyntheticClusters",
+]
 
 
 class BiasCorrection(Dataset):

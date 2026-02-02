@@ -41,6 +41,8 @@ from ..core.epoch_runner import EpochRunner
 from ..descriptor import Descriptor
 from ..metrics import MetricManager
 
+__all__ = ["CongradsCore"]
+
 
 class CongradsCore:
     """The CongradsCore class is the central training engine for constraint-guided optimization.
