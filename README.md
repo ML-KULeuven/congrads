@@ -161,8 +161,23 @@ core.fit(max_epochs=50)
 
 If you make use of this package or it's concepts in your research, please consider citing the following papers.
 
+### Theoretical works
+
 - Van Baelen, Q., & Karsmakers, P. (2023). **Constraint guided gradient descent: Training with inequality constraints with applications in regression and semantic segmentation.**
   Neurocomputing, 556, 126636. doi:10.1016/j.neucom.2023.126636 <br/>[ [pdf](https://www.sciencedirect.com/science/article/abs/pii/S0925231223007592) | [bibtex](https://raw.githubusercontent.com/ML-KULeuven/congrads/main/docs/_static/VanBaelen2023.bib) ]
+
+
+### Applied works
+
+- Meire, M., Van Baelen, Q., Ooijevaar, T., Karsmakers, P. (2026). **Constraint Guided Recurrent Convolutional AutoEncoders for Condition Indicator Estimation.** In: Proceedings of ESANN. Presented at the European Symposium on Artificial Neural Networks, Computational Intelligence and Machine Learning, Bruges, Belgium.
+
+- Rombouts, W., Van Baelen, Q., Karsmakers, P. with Rombouts, W. (corresp. author) (2025). **Constraint-Guided PINNs: A Constrained Optimization Approach.** In: CEUR Workshop Proceedings: vol. 4125, (124-130). Presented at the ECAI workshop ANSyA, Bologna, Italy, 25 Oct 2025-30 Oct 2025. <br/>[ [pdf](https://ceur-ws.org/Vol-4125/paper_30.pdf) | [bibtex](https://raw.githubusercontent.com/ML-KULeuven/congrads/main/docs/_static/Rombouts2025.bib) ]
+
+- Tefera, Y., Van Baelen, Q., Meire, M., Luca, S., Karsmakers, P. with Tefera, Y. (corresp. author) (2025). **Constraint-Guided Learning of Data-Driven Health Indicator Models: An Application on Bearings.** INTERNATIONAL JOURNAL OF PROGNOSTICS AND HEALTH MANAGEMENT, 16 (2), Art.No. ARTN 4268. doi: 10.36001/IJPHM.2025.v16i2.4268 <br/>[ [pdf](http://dx.doi.org/10.36001/IJPHM.2025.v16i2.4268) | [bibtex](https://raw.githubusercontent.com/ML-KULeuven/congrads/main/docs/_static/Tefera2025.bib) ]
+
+- Meire, M., Van Baelen, Q., Ooijevaar, T., Karsmakers, P. with Meire, M. (corresp. author) (2025). **Constraint guided autoencoders for joint optimization of condition indicator estimation and anomaly detection in machine condition monitoring.** MACHINE LEARNING, 114 (7), Art.No. ARTN 153. doi: 10.1007/s10994-025-06779-0 <br/>[ [pdf](http://dx.doi.org/10.1007/s10994-025-06779-0) | [bibtex](https://raw.githubusercontent.com/ML-KULeuven/congrads/main/docs/_static/Meire2025.bib) ]
+
+- Meire, M., Van Baelen, Q., Ooijevaar, T., Karsmakers, P. (2023). **Constraint-Guided Autoencoders to Enforce a Predefined Threshold on Anomaly Scores: An Application in Machine Condition Monitoring.** Journal of Dynamics, Monitoring and Diagnostics, 2 (2), 144-154. doi: 10.37965/jdmd.2023.234 <br/>[ [pdf](http://dx.doi.org/10.37965/jdmd.2023.234) | [bibtex](https://raw.githubusercontent.com/ML-KULeuven/congrads/main/docs/_static/Meire2023.bib) ]
 
 ## Contributing
 
