@@ -57,8 +57,9 @@ def main():
 
     # Descriptor setup
     descriptor = Descriptor()
-    descriptor.add("output", "Tmax", 0)
-    descriptor.add("output", "Tmin", 1)
+    descriptor.add_layer("output")
+    descriptor.add_tag("Tmax", "output", 0)
+    descriptor.add_tag("Tmin", "output", 1)
 
     # Constraints definition
     Constraint.descriptor = descriptor

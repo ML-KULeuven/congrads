@@ -21,11 +21,14 @@ def mock_data():
 @pytest.fixture(autouse=True)
 def patch_descriptor():
     mock_descriptor = Descriptor()
-    mock_descriptor.add("input", "a", 0, constant=True)
-    mock_descriptor.add("input", "b", 1, constant=True)
-    mock_descriptor.add("output", "c", 0)
-    mock_descriptor.add("output", "d", 1)
-    mock_descriptor.add("context", "id", 0, constant=True)
+    mock_descriptor.add_layer("input", constant=True)
+    mock_descriptor.add_tag("a", "input", 0)
+    mock_descriptor.add_tag("b", "input", 1)
+    mock_descriptor.add_layer("output")
+    mock_descriptor.add_tag("c", "output", 0)
+    mock_descriptor.add_tag("d", "output", 1)
+    mock_descriptor.add_layer("context", constant=True)
+    mock_descriptor.add_tag("id", "context", 0)
 
     registry.Constraint.descriptor = mock_descriptor
     registry.Constraint.device = "cpu"
@@ -127,10 +130,10 @@ def test_constraints_calculate_direction(constraint_cls, mock_data):
         assert dir_tensor.ndim == 2, f"{layer} direction tensor not 2D"
 
         # layer key exists in descriptor
-        descriptor_keys = getattr(constraint.descriptor, "variable_keys", set()) | getattr(
-            constraint.descriptor, "constant_keys", set()
+        descriptor_layers = getattr(constraint.descriptor, "variable_layers", set()) | getattr(
+            constraint.descriptor, "constant_layers", set()
         )
-        assert layer in descriptor_keys, f"{layer} not in descriptor keys"
+        assert layer in descriptor_layers, f"{layer} not in descriptor layers"
 
 
 # --- Specific logic tests --- #

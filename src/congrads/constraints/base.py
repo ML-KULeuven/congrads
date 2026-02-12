@@ -125,7 +125,7 @@ class Constraint(ABC):
         # Infer layers from descriptor and tags
         self.layers = set()
         for tag in self.tags:
-            if not self.descriptor.exists(tag):
+            if not self.descriptor.has_tag(tag):
                 raise ValueError(
                     f"The tag {tag} used with constraint "
                     f"{self.name} is not defined in the descriptor. Please "

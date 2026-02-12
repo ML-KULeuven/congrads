@@ -85,9 +85,16 @@ Descriptor
 The descriptor class forms a translation manager that will attach human-readable names to specific points in your neural network.
 It represents your problem and has the structure of the neural network, while having names that relate to your dataset.
 
-The :meth:`descriptor.add(layer, tag, index, ...) <congrads.descriptor.add>` method is used to reference specific components of the neural network. 
-The layer argument identifies a network section based on predefined dictionary keys, while index specifies a particular neuron within that layer. 
-You must assign a name to each neuron (dataset column) that you plan to attach a constraints on so it can be referenced easily.
+The descriptor introduces the concepts tag and layer. A layer is a section of the network that can be referenced as a whole, such as the input layer, output layer, or any intermediary layer. 
+It always corresponds to a specific dictionary key in the network's output. A tag is a specific neuron (or multiple) within a layer, which can be referenced using the layer name and an index.
+Refer to the picture below for a visual representation of these concepts in your model.
+
+.. image:: _static/descriptor_illustration.svg
+  :width: 400
+  :align: center
+
+The :meth:`descriptor.add_layer(key, ...) <congrads.descriptor.add_layer>` and :meth:`descriptor.add_tag(name, layer, index, ...) <congrads.descriptor.add_tag>` methods are used to set up this descriptor and prepare it for use. 
+You must assign a tag to a neuron (or multiple) that you plan to put constraints on so it can be referenced easily.
 
 .. note::
 
@@ -96,18 +103,20 @@ You must assign a name to each neuron (dataset column) that you plan to attach a
 
 Certain parts of your network may be non-learnable and should be excluded from the CGGD (Congrads) algorithm. 
 For example, network inputs are always fixed and cannot be optimized. 
-To exclude a specific neuron from the learning process, set its attribute to ```constant=True```.
+To exclude a specific neuron from the learning process, set the layer attribute to ```constant=True```.
 
 .. code-block:: python
 
     from congrads.descriptor import Descriptor
 
     descriptor = Descriptor()
-    descriptor.add("input", "Date", 0, constant=True)
-    descriptor.add("output", "Minimum temperature", 0)
-    descriptor.add("output", "Maximum temperature", 1)
-    descriptor.add("output", "Normalized minimum sunshine", 2)
-    descriptor.add("output", "Normalized maximum sunshine", 3)
+    descriptor.add_layer("input", constant=True)
+    descriptor.add_layer("output")
+    descriptor.add_tag("Date", "input", 0)
+    descriptor.add_tag("Minimum temperature", "output", 0)
+    descriptor.add_tag("Maximum temperature", "output", 1)
+    descriptor.add_tag("Normalized minimum sunshine", "output", 2)
+    descriptor.add_tag("Normalized maximum sunshine", "output", 3)
 
 Constraints
 -----------
@@ -126,13 +135,13 @@ This can be useful to undo an operation that was done in preprocessing for examp
     Constraint.descriptor = descriptor
     Constraint.device = device
     constraints = [
-        BinaryConstraint("Minimum temperature", le, "Maximum temperature"),
-        ScalarConstraint("Normalized minimum sunshine", ge, 0),
+        BinaryConstraint("Minimum temperature", "<=", "Maximum temperature"),
+        ScalarConstraint("Normalized minimum sunshine", ">=", 0),
         BinaryConstraint(
             DenormalizeMinMax(
                 "Normalized minimum sunshine", min=12, max=32
             ),
-            le,
+            "<=",
             DenormalizeMinMax(
                 "Normalized maximum sunshine", min=124, max=324
             ),

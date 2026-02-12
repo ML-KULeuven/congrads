@@ -103,11 +103,14 @@ def main():
 
     # Descriptor setup
     descriptor = Descriptor()
-    descriptor.add("input", "signal", 0, constant=True)
-    descriptor.add("context", "time", 0, constant=True)
-    descriptor.add("context", "energy", 1, constant=True)
-    descriptor.add("context", "run_id", 2, constant=True)
-    descriptor.add("output", "score", 0)
+    descriptor.add_layer("input", constant=True)
+    descriptor.add_layer("context", constant=True)
+    descriptor.add_layer("output")
+    descriptor.add_tag("signal", "input", 0)
+    descriptor.add_tag("time", "context", 0)
+    descriptor.add_tag("energy", "context", 1)
+    descriptor.add_tag("run_id", "context", 2)
+    descriptor.add_tag("score", "output", 0)
 
     # Constraints definition
     Constraint.descriptor = descriptor

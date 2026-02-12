@@ -74,10 +74,12 @@ def main():
 
     # Descriptor setup
     descriptor = Descriptor()
-    descriptor.add("input", "x", 0, constant=True)
-    descriptor.add("input", "y", 1, constant=True)
-    descriptor.add("output", "ProbA", 0)
-    descriptor.add("output", "ProbB", 1)
+    descriptor.add_layer("input", constant=True)
+    descriptor.add_layer("output")
+    descriptor.add_tag("x", "input", 0)
+    descriptor.add_tag("y", "input", 1)
+    descriptor.add_tag("ProbA", "output", 0)
+    descriptor.add_tag("ProbB", "output", 1)
 
     # Constraints definition
     Constraint.descriptor = descriptor

@@ -44,8 +44,8 @@ class DummyConstraint:
 
 class DummyDescriptor:
     def __init__(self):
-        self.variable_keys = {"x"}
-        self.affects_loss_keys = {"x"}
+        self.variable_layers = {"x"}
+        self.affects_loss_layers = {"x"}
 
 
 class DummyMetricManager:

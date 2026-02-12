@@ -56,15 +56,17 @@ def main():
 
     # Descriptor setup
     descriptor = Descriptor()
-    descriptor.add("input", "Total Household Income", 0, constant=True)
-    descriptor.add("output", "Total Food Expenditure", 0)
-    descriptor.add("output", "Bread and Cereals Expenditure", 1)
-    descriptor.add("output", "Meat Expenditure", 2)
-    descriptor.add("output", "Vegetables Expenditure", 3)
-    descriptor.add("output", "Housing and water Expenditure", 4)
-    descriptor.add("output", "Medical Care Expenditure", 5)
-    descriptor.add("output", "Communication Expenditure", 6)
-    descriptor.add("output", "Education Expenditure", 7)
+    descriptor.add_layer("input", constant=True)
+    descriptor.add_layer("output")
+    descriptor.add_tag("Total Household Income", "input", 0)
+    descriptor.add_tag("Total Food Expenditure", "output", 0)
+    descriptor.add_tag("Bread and Cereals Expenditure", "output", 1)
+    descriptor.add_tag("Meat Expenditure", "output", 2)
+    descriptor.add_tag("Vegetables Expenditure", "output", 3)
+    descriptor.add_tag("Housing and water Expenditure", "output", 4)
+    descriptor.add_tag("Medical Care Expenditure", "output", 5)
+    descriptor.add_tag("Communication Expenditure", "output", 6)
+    descriptor.add_tag("Education Expenditure", "output", 7)
 
     # Constraints definition
     Constraint.descriptor = descriptor

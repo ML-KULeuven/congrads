@@ -108,8 +108,9 @@ optimizer = Adam(network.parameters(), lr=0.001)
 
 ```python
 descriptor = Descriptor()
-descriptor.add("output", 0, "Tmax")
-descriptor.add("output", 1, "Tmin")
+descriptor.add_layer("output")
+descriptor.add("Tmax", "output", 0)
+descriptor.add("Tmin", "output", 1)
 ```
 
 #### 6. Define your constraints on the network.
@@ -118,11 +119,11 @@ descriptor.add("output", 1, "Tmin")
 Constraint.descriptor = descriptor
 Constraint.device = device
 constraints = [
-    ScalarConstraint("Tmin", ge, 0),
-    ScalarConstraint("Tmin", le, 1),
-    ScalarConstraint("Tmax", ge, 0),
-    ScalarConstraint("Tmax", le, 1),
-    BinaryConstraint("Tmax", gt, "Tmin"),
+    ScalarConstraint("Tmin", ">=", 0),
+    ScalarConstraint("Tmin", "<=", 1),
+    ScalarConstraint("Tmax", ">=", 0),
+    ScalarConstraint("Tmax", "<=", 1),
+    BinaryConstraint("Tmax", ">", "Tmin"),
 ]
 ```
 

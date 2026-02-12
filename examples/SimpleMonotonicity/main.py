@@ -71,8 +71,10 @@ def main():
 
     # Descriptor setup
     descriptor = Descriptor()
-    descriptor.add("input", "x", 0, constant=True)
-    descriptor.add("output", "y", 0)
+    descriptor.add_layer("input", constant=True)
+    descriptor.add_layer("output")
+    descriptor.add_tag("x", "input", 0)
+    descriptor.add_tag("y", "output", 0)
 
     # Constraints definition
     Constraint.descriptor = descriptor

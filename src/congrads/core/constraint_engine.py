@@ -147,7 +147,7 @@ class ConstraintEngine:
                 continue
 
             # Compute constraint-based rescale loss
-            for key in constraint.layers & self.descriptor.variable_keys:
+            for key in constraint.layers & self.descriptor.variable_layers:
                 with no_grad():
                     rescale = (1 - checks) * directions[key] * constraint.rescale_factor
                 total_rescale_loss += self.aggregator(data[key] * rescale * norm_loss_grad[key])
@@ -168,7 +168,7 @@ class ConstraintEngine:
         # Precompute gradients for variable layers affecting the loss
         norm_loss_grad = {}
 
-        variable_keys = self.descriptor.variable_keys & self.descriptor.affects_loss_keys
+        variable_keys = self.descriptor.variable_layers & self.descriptor.affects_loss_layers
         for key in variable_keys:
             if data[key].requires_grad is False:
                 raise RuntimeError(

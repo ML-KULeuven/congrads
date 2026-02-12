@@ -97,8 +97,9 @@ By using Congrads, we can easily integrate these constraints into our training p
 .. code-block:: python
 
     descriptor = Descriptor()
-    descriptor.add("output", "Tmax", 0)
-    descriptor.add("output", "Tmin", 1)
+    descriptor.add_layer("output")
+    descriptor.add_tag("Tmax", "output", 0)
+    descriptor.add_tag("Tmin", "output", 1)
 
 6. Define your constraints on the network.
 
