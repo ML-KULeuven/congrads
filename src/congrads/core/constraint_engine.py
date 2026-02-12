@@ -150,7 +150,12 @@ class ConstraintEngine:
             for key in constraint.layers & self.descriptor.variable_layers:
                 with no_grad():
                     rescale = (1 - checks) * directions[key] * constraint.rescale_factor
-                total_rescale_loss += self.aggregator(data[key] * rescale * norm_loss_grad[key])
+
+                # Determine which gradients to use based on the descriptor
+                gradients_layer = self.descriptor.get_layer(key).gradients_from or key
+                total_rescale_loss += self.aggregator(
+                    data[key] * rescale * norm_loss_grad[gradients_layer]
+                )
 
         return loss + total_rescale_loss
 

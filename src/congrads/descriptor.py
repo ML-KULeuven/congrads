@@ -34,6 +34,7 @@ class Layer:
     key: str
     constant: bool
     affects_loss: bool
+    gradients_from: str | None = None
 
 
 @dataclass(frozen=True)
@@ -73,7 +74,13 @@ class Descriptor:
         self._layers: dict[str, Layer] = {}
         self._tags: dict[str, Tag] = {}
 
-    def add_layer(self, key: str, constant: bool = False, affects_loss: bool = True):
+    def add_layer(
+        self,
+        key: str,
+        constant: bool = False,
+        affects_loss: bool = True,
+        gradients_from: str | None = None,
+    ):
         """Register a new layer.
 
         A layer corresponds to a key in the model's data dictionary and
@@ -85,6 +92,8 @@ class Descriptor:
                 Defaults to False.
             affects_loss (bool, optional): Whether this layer contributes to
                 the loss computation. Defaults to True.
+            gradients_from (str | None, optional): If specified, indicates that
+                gradients from another layer should be used instead.
 
         Raises:
             TypeError: If arguments have incorrect types.
@@ -94,13 +103,16 @@ class Descriptor:
         validate_type("key", key, str)
         validate_type("constant", constant, bool)
         validate_type("affects_loss", affects_loss, bool)
+        validate_type("gradients_from", gradients_from, str, allow_none=True)
 
         # Other validations
         if key in self._layers:
             raise ValueError(f"Layer '{key}' already exists.")
 
         # Store layer information
-        self._layers[key] = Layer(key=key, constant=constant, affects_loss=affects_loss)
+        self._layers[key] = Layer(
+            key=key, constant=constant, affects_loss=affects_loss, gradients_from=gradients_from
+        )
 
     def add_tag(
         self,
@@ -176,6 +188,40 @@ class Descriptor:
     def has_tag(self, tag: str) -> bool:
         """Return whether a tag is registered."""
         return tag in self._tags
+
+    def get_layer(self, key: str) -> Layer:
+        """Return the Layer object associated with a key.
+
+        Args:
+            key (str): Registered layer key.
+
+        Returns:
+            Layer: The Layer object containing metadata for the specified key.
+
+        Raises:
+            ValueError: If the layer key is not registered.
+        """
+        layer_info = self._layers.get(key)
+        if layer_info is None:
+            raise ValueError(f"Layer '{key}' is not registered in descriptor.")
+        return layer_info
+
+    def get_tag(self, tag: str) -> Tag:
+        """Return the Tag object associated with a tag name.
+
+        Args:
+            tag (str): Registered tag name.
+
+        Returns:
+            Tag: The Tag object containing the layer and index for the specified tag.
+
+        Raises:
+            ValueError: If the tag is not registered.
+        """
+        tag_info = self._tags.get(tag)
+        if tag_info is None:
+            raise ValueError(f"Tag '{tag}' is not registered in descriptor.")
+        return tag_info
 
     def location(self, tag: str) -> tuple[str, int | tuple[int, ...] | None]:
         """Return the layer name and index associated with a tag.

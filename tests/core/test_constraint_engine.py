@@ -5,6 +5,7 @@ import torch
 from torch import Tensor
 
 from congrads.core.constraint_engine import ConstraintEngine
+from congrads.descriptor import Descriptor
 
 # -------------------------
 # Dummy / Fake Components
@@ -42,12 +43,6 @@ class DummyConstraint:
         }
 
 
-class DummyDescriptor:
-    def __init__(self):
-        self.variable_layers = {"x"}
-        self.affects_loss_layers = {"x"}
-
-
 class DummyMetricManager:
     def __init__(self):
         self.accumulate = MagicMock()
@@ -65,7 +60,10 @@ def device():
 
 @pytest.fixture
 def descriptor():
-    return DummyDescriptor()
+    descriptor = Descriptor()
+    descriptor.add_layer("x")
+    descriptor.add_tag("x", "x", 0)
+    return descriptor
 
 
 @pytest.fixture
