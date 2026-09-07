@@ -1289,6 +1289,46 @@ class ORConstraint(Constraint):
 
 
 class PDEConstraint(Constraint):
+    """A constraint that enforces a scalar comparison on a PDE residual.
+
+    This class ensures that a residual tag (e.g. the output of a PDE
+    operator) satisfies a scalar comparison operation (e.g. less than,
+    greater than, etc.), similar to `ScalarConstraint`. Unlike
+    `ScalarConstraint`, the corrective direction is computed from the
+    gradient of the residual with respect to the output of a specified
+    base layer, which requires the network to be run with gradient
+    tracking enabled.
+
+    Args:
+        layer_base (str): Name of the layer whose output the residual is
+            differentiated with respect to.
+        tag_residual (str): Name of the tag holding the PDE residual.
+        comparator (Literal["<", "<=", ">", ">="]): Comparison operator used in the constraint.
+        scalar (Number): The scalar value to compare the residual against.
+        name (str, optional): A unique name for the constraint. If not
+            provided, a name is auto-generated in the format
+            "<tag_residual> <comparator> <scalar>".
+        enforce (bool, optional): If False, only monitor the constraint
+            without adjusting the loss. Defaults to True.
+        rescale_factor (Number, optional): Factor to scale the
+            constraint-adjusted loss. Defaults to 1.5.
+        eps (float, optional): Small value used to avoid division by zero
+            when normalizing the residual gradient. Defaults to 1e-20.
+
+    Raises:
+        TypeError: If a provided attribute has an incompatible type.
+        ValueError: If `layer_base` or `tag_residual` is not defined in
+            the descriptor.
+
+    Notes:
+        - Requires `core.network_uses_grad=True`, so that the computational
+          graph needed to differentiate the residual is available.
+        - The `tag_residual` must be defined in the `descriptor` mapping.
+        - The constraint name is composed using the residual tag, comparator,
+          and scalar value.
+
+    """
+
     # NOTE: Requires core.network_uses_grad=True
 
     def __init__(
@@ -1302,6 +1342,36 @@ class PDEConstraint(Constraint):
         rescale_factor: Number = 1.5,
         eps: float = 1e-20,
     ):
+        """Initializes a PDEConstraint instance.
+
+        Args:
+            layer_base (str): Name of the layer whose output the residual is
+                differentiated with respect to.
+            tag_residual (str): Name of the tag holding the PDE residual.
+            comparator (Literal["<", "<=", ">", ">="]): Comparison operator used in the constraint.
+            scalar (Number): The scalar value to compare the residual against.
+            name (str, optional): A unique name for the constraint. If not
+                provided, a name is auto-generated in the format
+                "<tag_residual> <comparator> <scalar>".
+            enforce (bool, optional): If False, only monitor the constraint
+                without adjusting the loss. Defaults to True.
+            rescale_factor (Number, optional): Factor to scale the
+                constraint-adjusted loss. Defaults to 1.5.
+            eps (float, optional): Small value used to avoid division by zero
+                when normalizing the residual gradient. Defaults to 1e-20.
+
+        Raises:
+            TypeError: If a provided attribute has an incompatible type.
+            ValueError: If `layer_base` or `tag_residual` is not defined in
+                the descriptor.
+
+        Notes:
+            - Requires `core.network_uses_grad=True`, so that the computational
+              graph needed to differentiate the residual is available.
+            - The `tag_residual` must be defined in the `descriptor` mapping.
+            - The constraint name is composed using the residual tag, comparator,
+              and scalar value.
+        """
         # Type checking
         validate_type("layer_base", layer_base, str)
         validate_type("tag_residual", tag_residual, str)
@@ -1346,6 +1416,20 @@ class PDEConstraint(Constraint):
         self.layer_residual, _ = self.descriptor.location(tag_residual)
 
     def check_constraint(self, data: dict[str, Tensor]) -> tuple[Tensor, Tensor]:
+        """Check if the PDE residual satisfies the scalar constraint.
+
+        Also computes the corrective direction from the gradient of the
+        residual with respect to `layer_base`'s output, for later use in
+        `calculate_direction`.
+
+        Args:
+            data (dict[str, Tensor]): Dictionary that holds batch data, model predictions and context.
+
+        Returns:
+            tuple[Tensor, Tensor]:
+                - result: Tensor indicating whether the residual satisfies the constraint.
+                - ones_like(result): Tensor of ones with same shape as `result`.
+        """
         # Extract residual
         residual = self.descriptor.select(self.tag_residual, data)
 
@@ -1367,6 +1451,19 @@ class PDEConstraint(Constraint):
         return result, ones_like(result)
 
     def calculate_direction(self, data: dict[str, Tensor]) -> dict[str, Tensor]:
+        """Return the adjustment direction to satisfy the PDE constraint.
+
+        Only works for dense layers due to neuron-to-index translation.
+        Requires `check_constraint` to have been called first, since it
+        relies on the direction computed there.
+
+        Args:
+            data (dict[str, Tensor]): Dictionary that holds batch data, model predictions and context.
+
+        Returns:
+            dict[str, Tensor]: Dictionary mapping the residual's layer to a
+                tensor specifying the adjustment direction.
+        """
         # NOTE currently only works for dense layers due
         # to neuron to index translation
 
