@@ -34,6 +34,7 @@ from torchvision.datasets.utils import (
 )
 
 __all__ = [
+    "DownloadableCSVDataset",
     "BiasCorrection",
     "FamilyIncome",
     "SectionedGaussians",
@@ -42,39 +43,30 @@ __all__ = [
 ]
 
 
-class BiasCorrection(Dataset):
-    """A dataset class for accessing the Bias Correction dataset.
+class DownloadableCSVDataset(Dataset):
+    """Base class for downloadable CSV-based datasets.
 
-    This class extends the `Dataset` class and provides functionality for
-    downloading, loading, and transforming the Bias Correction dataset.
-    The dataset is focused on temperature forecast data and is made available
-    for use with PyTorch. If `download` is set to True, the dataset will be
-    downloaded if it is not already available. The data is then loaded,
-    and a transformation function is applied to it.
+    Subclasses must define:
+        mirrors (list[str]): List of mirror URLs to download from.
+        resources (list[tuple[str, str]]): List of (filename, md5) tuples.
+        csv_filename (str): Name of the CSV file to load after extraction.
 
     Args:
-        root (Union[str, Path]): The root directory where the dataset
-            will be stored or loaded from.
-        transform (Callable): A function to transform the dataset
-            (e.g., preprocessing).
-        download (bool, optional): Whether to download the dataset if it's
-            not already present. Defaults to False.
+        root (Union[str, Path]): Root directory for dataset storage.
+        transform (Callable): Preprocessing function applied to the loaded DataFrame.
+        download (bool, optional): Whether to download if not present. Defaults to False.
 
     Raises:
-        RuntimeError: If the dataset is not found and `download`
-            is not set to True or if all mirrors fail to provide the dataset.
+        RuntimeError: If the dataset is not found and download is False,
+            or if all mirrors fail.
     """
 
-    mirrors = ["https://archive.ics.uci.edu/static/public/514/"]
-    resources = [
-        (
-            "bias+correction+of+numerical+prediction+model+temperature+forecast.zip",
-            "3deee56d461a2686887c4ae38fe3ccf3",
-        )
-    ]
+    mirrors: list[str] = []
+    resources: list[tuple[str, str]] = []
+    csv_filename: str = ""
 
     def __init__(self, root: str | Path, transform: Callable, download: bool = False) -> None:
-        """Constructor method to initialize the dataset."""
+        """Initialize the dataset, optionally downloading it first."""
         super().__init__()
         self.root = root
         self.transform = transform
@@ -83,24 +75,19 @@ class BiasCorrection(Dataset):
             self.download()
 
         if not self._check_exists():
-            raise RuntimeError("Dataset not found. You can use download=True to download it")
+            raise RuntimeError("Dataset not found. You can use download=True to download it.")
 
         self.data_input, self.data_output = self._load_data()
 
     def _load_data(self):
-        """Loads the dataset from the CSV file and applies the transformation.
-
-        The data is read from the `Bias_correction_ucl.csv` file, and the
-        transformation function is applied to it.
-        The input and output data are separated and returned as numpy arrays.
+        """Load the CSV file, apply the transform, and split into input/output arrays.
 
         Returns:
-            Tuple[numpy.ndarray, numpy.ndarray]: A tuple containing the input
-                and output data as numpy arrays.
+            tuple[np.ndarray, np.ndarray]: Input and output data as float32 arrays.
         """
-        data: pd.DataFrame = pd.read_csv(
-            os.path.join(self.data_folder, "Bias_correction_ucl.csv")
-        ).pipe(self.transform)
+        data: pd.DataFrame = pd.read_csv(os.path.join(self.data_folder, self.csv_filename)).pipe(
+            self.transform
+        )
 
         data_input = data["Input"].to_numpy(dtype=np.float32)
         data_output = data["Output"].to_numpy(dtype=np.float32)
@@ -108,61 +95,37 @@ class BiasCorrection(Dataset):
         return data_input, data_output
 
     def __len__(self):
-        """Returns the number of examples in the dataset.
-
-        Returns:
-            int: The number of examples in the dataset
-                (i.e., the number of rows in the input data).
-        """
+        """Return the number of examples in the dataset."""
         return self.data_input.shape[0]
 
     def __getitem__(self, idx):
-        """Returns the input-output pair for a given index.
+        """Return the input-output pair for a given index.
 
         Args:
             idx (int): The index of the example to retrieve.
 
         Returns:
-            dict: A dictionary with the following keys:
-                - "input" (torch.Tensor): The input features for the example.
-                - "target" (torch.Tensor): The target output for the example.
+            dict: Dictionary with "input" and "target" tensors.
         """
-        example = self.data_input[idx, :]
-        target = self.data_output[idx, :]
-        example = torch.tensor(example)
-        target = torch.tensor(target)
-        return {"input": example, "target": target}
+        return {
+            "input": torch.tensor(self.data_input[idx, :]),
+            "target": torch.tensor(self.data_output[idx, :]),
+        }
 
     @property
     def data_folder(self) -> str:
-        """Returns the path to the folder where the dataset is stored.
-
-        Returns:
-            str: The path to the dataset folder.
-        """
+        """Return the path to the folder where the dataset is stored."""
         return os.path.join(self.root, self.__class__.__name__)
 
     def _check_exists(self) -> bool:
-        """Checks if the dataset is already downloaded and verified.
-
-        This method checks that all required files exist and
-        their integrity is validated via MD5 checksums.
-
-        Returns:
-            bool: True if all resources exist and their
-                integrity is valid, False otherwise.
-        """
+        """Check if the dataset is already downloaded and verified via MD5."""
         return all(
             check_integrity(os.path.join(self.data_folder, file_path), checksum)
             for file_path, checksum in self.resources
         )
 
     def download(self) -> None:
-        """Downloads and extracts the dataset.
-
-        This method attempts to download the dataset from the mirrors and
-        extract it into the appropriate folder. If any error occurs during
-        downloading, it will try each mirror in sequence.
+        """Download and extract the dataset, trying each mirror in sequence.
 
         Raises:
             RuntimeError: If all mirrors fail to provide the dataset.
@@ -172,7 +135,6 @@ class BiasCorrection(Dataset):
 
         os.makedirs(self.data_folder, exist_ok=True)
 
-        # download files
         for filename, md5 in self.resources:
             errors = []
             for mirror in self.mirrors:
@@ -192,29 +154,32 @@ class BiasCorrection(Dataset):
                 raise RuntimeError(s)
 
 
-class FamilyIncome(Dataset):
-    """A dataset class for accessing the Family Income and Expenditure dataset.
-
-    This class extends the `Dataset` class and provides functionality for
-    downloading, loading, and transforming the Family Income and
-    Expenditure dataset. The dataset is intended for use with
-    PyTorch-based projects, offering a convenient interface for data handling.
-    This class provides access to the Family Income and Expenditure dataset
-    for use with PyTorch. If `download` is set to True, the dataset will be
-    downloaded if it is not already available. The data is then loaded,
-    and a user-defined transformation function is applied to it.
+class BiasCorrection(DownloadableCSVDataset):
+    """Dataset for the Bias Correction temperature forecast data.
 
     Args:
-        root (Union[str, Path]): The root directory where the dataset will
-            be stored or loaded from.
-        transform (Callable): A function to transform the dataset
-            (e.g., preprocessing).
-        download (bool, optional): Whether to download the dataset if it's
-            not already present. Defaults to False.
+        root (Union[str, Path]): Root directory for dataset storage.
+        transform (Callable): Preprocessing function for the DataFrame.
+        download (bool, optional): Whether to download if not present. Defaults to False.
+    """
 
-    Raises:
-        RuntimeError: If the dataset is not found and `download`
-            is not set to True or if all mirrors fail to provide the dataset.
+    mirrors = ["https://archive.ics.uci.edu/static/public/514/"]
+    resources = [
+        (
+            "bias+correction+of+numerical+prediction+model+temperature+forecast.zip",
+            "3deee56d461a2686887c4ae38fe3ccf3",
+        )
+    ]
+    csv_filename = "Bias_correction_ucl.csv"
+
+
+class FamilyIncome(DownloadableCSVDataset):
+    """Dataset for the Family Income and Expenditure data.
+
+    Args:
+        root (Union[str, Path]): Root directory for dataset storage.
+        transform (Callable): Preprocessing function for the DataFrame.
+        download (bool, optional): Whether to download if not present. Defaults to False.
     """
 
     mirrors = [
@@ -226,98 +191,13 @@ class FamilyIncome(Dataset):
             "7d74bc7facc3d7c07c4df1c1c6ac563e",
         )
     ]
-
-    def __init__(self, root: str | Path, transform: Callable, download: bool = False) -> None:
-        """Constructor method to initialize the dataset."""
-        super().__init__()
-        self.root = root
-        self.transform = transform
-
-        if download:
-            self.download()
-
-        if not self._check_exists():
-            raise RuntimeError("Dataset not found. You can use download=True to download it.")
-
-        self.data_input, self.data_output = self._load_data()
-
-    def _load_data(self):
-        """Load and transform the Family Income and Expenditure dataset.
-
-        Reads the data from the `Family Income and Expenditure.csv` file located
-        in `self.data_folder` and applies the transformation function. The input
-        and output columns are extracted and returned as NumPy arrays.
-
-        Returns:
-            Tuple[np.ndarray, np.ndarray]: A tuple containing:
-                - input data as a NumPy array of type float32
-                - output data as a NumPy array of type float32
-        """
-        data: pd.DataFrame = pd.read_csv(
-            os.path.join(self.data_folder, "Family Income and Expenditure.csv")
-        ).pipe(self.transform)
-
-        data_input = data["Input"].to_numpy(dtype=np.float32)
-        data_output = data["Output"].to_numpy(dtype=np.float32)
-
-        return data_input, data_output
-
-    def __len__(self):
-        """Returns the number of examples in the dataset.
-
-        Returns:
-            int: The number of examples in the dataset
-                (i.e., the number of rows in the input data).
-        """
-        return self.data_input.shape[0]
-
-    def __getitem__(self, idx):
-        """Returns the input-output pair for a given index.
-
-        Args:
-            idx (int): The index of the example to retrieve.
-
-        Returns:
-            dict: A dictionary with the following keys:
-                - "input" (torch.Tensor): The input features for the example.
-                - "target" (torch.Tensor): The target output for the example.
-        """
-        example = self.data_input[idx, :]
-        target = self.data_output[idx, :]
-        example = torch.tensor(example)
-        target = torch.tensor(target)
-        return {"input": example, "target": target}
-
-    @property
-    def data_folder(self) -> str:
-        """Returns the path to the folder where the dataset is stored.
-
-        Returns:
-            str: The path to the dataset folder.
-        """
-        return os.path.join(self.root, self.__class__.__name__)
-
-    def _check_exists(self) -> bool:
-        """Checks if the dataset is already downloaded and verified.
-
-        This method checks that all required files exist and
-        their integrity is validated via MD5 checksums.
-
-        Returns:
-            bool: True if all resources exist and their
-                integrity is valid, False otherwise.
-        """
-        return all(
-            check_integrity(os.path.join(self.data_folder, file_path), checksum)
-            for file_path, checksum in self.resources
-        )
+    csv_filename = "Family Income and Expenditure.csv"
 
     def download(self) -> None:
-        """Downloads and extracts the dataset.
+        """Download the Family Income dataset from Kaggle.
 
-        This method attempts to download the dataset from the mirrors
-        and extract it into the appropriate folder. If any error occurs
-        during downloading, it will try each mirror in sequence.
+        Overrides the base class because the Kaggle mirror URL is the
+        full download URL (the filename is not appended to the mirror).
 
         Raises:
             RuntimeError: If all mirrors fail to provide the dataset.
@@ -327,7 +207,6 @@ class FamilyIncome(Dataset):
 
         os.makedirs(self.data_folder, exist_ok=True)
 
-        # download files
         for filename, md5 in self.resources:
             errors = []
             for mirror in self.mirrors:
@@ -614,13 +493,13 @@ class SectionedGaussians(Dataset):
                 - "target":  Ground-truth exponential decay value
 
         """
-        sigal = self.signal[idx]
+        signal = self.signal[idx]
         context = self.context[idx]
         time = self.time[idx]
         target = self._compute_ground_truth(time)
 
         return {
-            "input": sigal,
+            "input": signal,
             "context": context,
             "target": target,
         }

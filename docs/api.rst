@@ -29,6 +29,11 @@ Checkpoints
 Constraints
 -----------
 
+.. automodule:: congrads.constraints.base
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 .. automodule:: congrads.constraints.registry
    :members:
    :undoc-members:

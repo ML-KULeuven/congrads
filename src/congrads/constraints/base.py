@@ -24,8 +24,9 @@ from typing import Literal
 
 from torch import Tensor
 
-from congrads.descriptor import Descriptor
-from congrads.utils.validation import validate_iterable, validate_type
+from ..descriptor import Descriptor
+from ..utils.validation import validate_iterable, validate_type
+from .rescale_strategy import RescaleStrategy
 
 __all__ = ["Constraint", "MonotonicityConstraint"]
 
@@ -44,9 +45,10 @@ class Constraint(ABC):
             a name is generated based on the class name and a random suffix.
         enforce (bool, optional): If False, only monitor the constraint
             without adjusting the loss. Defaults to True.
-        rescale_factor (Number, optional): Factor to scale the
+        rescale_factor (Number | RescaleStrategy, optional): Factor to scale the
             constraint-adjusted loss. Defaults to 1.5. Should be greater
-            than 1 to give weight to the constraint.
+            than 1 to give weight to the constraint. Can also be a RescaleStrategy
+            for dynamic rescaling.
 
     Raises:
         TypeError: If a provided attribute has an incompatible type.
@@ -64,7 +66,11 @@ class Constraint(ABC):
     device = None
 
     def __init__(
-        self, tags: set[str], name: str = None, enforce: bool = True, rescale_factor: Number = 1.5
+        self,
+        tags: set[str],
+        name: str = None,
+        enforce: bool = True,
+        rescale_factor: Number | RescaleStrategy = 1.5,
     ) -> None:
         """Initializes a new Constraint instance.
 
@@ -75,9 +81,10 @@ class Constraint(ABC):
                 random suffix.
             enforce (bool, optional): If False, only monitor the constraint
                 without adjusting the loss. Defaults to True.
-            rescale_factor (Number, optional): Factor to scale the
+            rescale_factor (Number | RescaleStrategy, optional): Factor to scale the
                 constraint-adjusted loss. Defaults to 1.5. Should be greater
-                than 1 to give weight to the constraint.
+                than 1 to give weight to the constraint. Can also be a RescaleStrategy
+                for dynamic rescaling.
 
         Raises:
             TypeError: If a provided attribute has an incompatible type.
@@ -95,16 +102,15 @@ class Constraint(ABC):
         validate_iterable("tags", tags, str)
         validate_type("name", name, str, allow_none=True)
         validate_type("enforce", enforce, bool)
-        validate_type("rescale_factor", rescale_factor, Number)
+        validate_type("rescale_factor", rescale_factor, (Number, RescaleStrategy))
 
         # Init object variables
         self.tags = tags
-        self.rescale_factor = rescale_factor
-        self.initial_rescale_factor = rescale_factor
         self.enforce = enforce
+        self.rescale_factor = rescale_factor
 
         # Perform checks
-        if rescale_factor <= 1:
+        if isinstance(rescale_factor, Number) and rescale_factor <= 1:
             warnings.warn(
                 f"Rescale factor for constraint {name} is <= 1. The network "
                 "will favor general loss over the constraint-adjusted loss. "
@@ -169,6 +175,35 @@ class Constraint(ABC):
                 specify the adjustment direction for each tag.
         """
         pass
+
+    def compute_rescale_factor(
+        self,
+        data: dict[str, Tensor],
+        checks: Tensor,
+        mask: Tensor,
+        directions: dict[str, Tensor],
+        loss: Tensor,
+    ) -> Tensor:
+        """Compute the rescale factor for the constraint-adjusted loss.
+
+        By default, this method returns a constant rescale factor. Subclasses can
+        override this method to implement dynamic rescaling based on the current
+        state of constraint satisfaction.
+
+        Args:
+            data (dict[str, Tensor]): Dictionary that holds batch data, model predictions and context.
+            checks (Tensor): Tensor indicating constraint satisfaction for each sample.
+            mask (Tensor): Tensor indicating relevance of each sample.
+            directions (dict[str, Tensor]): Dictionary mapping layers to adjustment directions.
+            loss (Tensor): The original loss tensor before adjustment.
+
+        Returns:
+            Tensor: A tensor containing the rescale factor to apply to the constraint-adjusted loss.
+        """
+        if isinstance(self.rescale_factor, RescaleStrategy):
+            return self.rescale_factor.compute(data, checks, mask, directions, loss)
+
+        return self.rescale_factor
 
 
 class MonotonicityConstraint(Constraint, ABC):

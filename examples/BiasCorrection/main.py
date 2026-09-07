@@ -89,6 +89,7 @@ def main():
         network,
         optimizer,
         metric_manager,
+        device,
         save_dir="checkpoints/BiasCorrection",
         create_dir=True,
         report_save=True,

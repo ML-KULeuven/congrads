@@ -1,5 +1,6 @@
 """Module holding specific transformation implementations."""
 
+from collections.abc import Callable
 from numbers import Number
 
 from torch import Tensor
@@ -59,7 +60,7 @@ class DenormalizeMinMax(Transformation):
 class ApplyOperator(Transformation):
     """A transformation that applies a binary operator to the input tensor."""
 
-    def __init__(self, tag: str, operator: callable, value: Number):
+    def __init__(self, tag: str, operator: Callable, value: Number):
         """Initialize an operator-based transformation.
 
         Args:

@@ -36,12 +36,17 @@ def dummy_metrics():
 
 
 @pytest.fixture
+def device():
+    return torch.device("cpu")
+
+
+@pytest.fixture
 def always_improving():
     return lambda current, best: True
 
 
 def test_initialization_creates_dir(
-    temp_dir, dummy_model, dummy_optimizer, dummy_metrics, always_improving
+    temp_dir, dummy_model, dummy_optimizer, dummy_metrics, device, always_improving
 ):
     non_existent = os.path.join(temp_dir, "new_dir")
     assert not os.path.exists(non_existent)
@@ -51,6 +56,7 @@ def test_initialization_creates_dir(
         dummy_model,
         dummy_optimizer,
         dummy_metrics,
+        device,
         non_existent,
         create_dir=True,
     )
@@ -60,7 +66,7 @@ def test_initialization_creates_dir(
 
 
 def test_initialization_raises_if_dir_missing(
-    dummy_model, dummy_optimizer, dummy_metrics, always_improving
+    dummy_model, dummy_optimizer, dummy_metrics, device, always_improving
 ):
     with pytest.raises(FileNotFoundError):
         CheckpointManager(
@@ -68,19 +74,21 @@ def test_initialization_raises_if_dir_missing(
             dummy_model,
             dummy_optimizer,
             dummy_metrics,
+            device,
             "/nonexistent/path",
             create_dir=False,
         )
 
 
 def test_save_and_load_checkpoint(
-    temp_dir, dummy_model, dummy_optimizer, dummy_metrics, always_improving
+    temp_dir, dummy_model, dummy_optimizer, dummy_metrics, device, always_improving
 ):
     manager = CheckpointManager(
         always_improving,
         dummy_model,
         dummy_optimizer,
         dummy_metrics,
+        device,
         temp_dir,
         create_dir=True,
     )
@@ -102,32 +110,34 @@ def test_save_and_load_checkpoint(
 
 
 def test_resume_from_checkpoint(
-    temp_dir, dummy_model, dummy_optimizer, dummy_metrics, always_improving
+    temp_dir, dummy_model, dummy_optimizer, dummy_metrics, device, always_improving
 ):
     manager = CheckpointManager(
         always_improving,
         dummy_model,
         dummy_optimizer,
         dummy_metrics,
+        device,
         temp_dir,
         create_dir=True,
     )
     manager.save(epoch=7)
     new_manager = CheckpointManager(
-        always_improving, dummy_model, dummy_optimizer, dummy_metrics, temp_dir
+        always_improving, dummy_model, dummy_optimizer, dummy_metrics, device, temp_dir
     )
     epoch = new_manager.resume()
     assert epoch == 7
 
 
 def test_resume_missing_with_ignore(
-    temp_dir, dummy_model, dummy_optimizer, dummy_metrics, always_improving
+    temp_dir, dummy_model, dummy_optimizer, dummy_metrics, device, always_improving
 ):
     manager = CheckpointManager(
         always_improving,
         dummy_model,
         dummy_optimizer,
         dummy_metrics,
+        device,
         temp_dir,
         create_dir=True,
     )
@@ -136,13 +146,14 @@ def test_resume_missing_with_ignore(
 
 
 def test_resume_missing_without_ignore(
-    temp_dir, dummy_model, dummy_optimizer, dummy_metrics, always_improving
+    temp_dir, dummy_model, dummy_optimizer, dummy_metrics, device, always_improving
 ):
     manager = CheckpointManager(
         always_improving,
         dummy_model,
         dummy_optimizer,
         dummy_metrics,
+        device,
         temp_dir,
         create_dir=True,
     )
@@ -151,7 +162,7 @@ def test_resume_missing_without_ignore(
 
 
 def test_evaluate_criteria_saves_when_improving(
-    temp_dir, dummy_model, dummy_optimizer, dummy_metrics
+    temp_dir, dummy_model, dummy_optimizer, dummy_metrics, device
 ):
     def criteria(curr, best):
         return True  # Always save
@@ -161,6 +172,7 @@ def test_evaluate_criteria_saves_when_improving(
         dummy_model,
         dummy_optimizer,
         dummy_metrics,
+        device,
         temp_dir,
         create_dir=True,
     )
@@ -171,7 +183,7 @@ def test_evaluate_criteria_saves_when_improving(
 
 
 def test_evaluate_criteria_does_not_save_when_not_improving(
-    temp_dir, dummy_model, dummy_optimizer, dummy_metrics
+    temp_dir, dummy_model, dummy_optimizer, dummy_metrics, device
 ):
     def criteria(curr, best):
         return False  # Never save
@@ -181,6 +193,7 @@ def test_evaluate_criteria_does_not_save_when_not_improving(
         dummy_model,
         dummy_optimizer,
         dummy_metrics,
+        device,
         temp_dir,
         create_dir=True,
     )

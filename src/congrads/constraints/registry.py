@@ -47,7 +47,10 @@ from torch import (
     unique,
     zeros_like,
 )
+from torch.autograd import grad
 from torch.nn.functional import normalize
+
+from congrads.constraints.rescale_strategy import RescaleStrategy
 
 from ..transformations.base import Transformation
 from ..transformations.registry import IdentityTransformation
@@ -110,7 +113,8 @@ class ImplicationConstraint(Constraint):
         validate_type("body", body, Constraint)
 
         # Compose constraint name
-        name = f"{body.name} if {head.name}"
+        if name is None:
+            name = f"{body.name} if {head.name}"
 
         # Init parent class
         super().__init__(head.tags | body.tags, name, body.enforce, body.rescale_factor)
@@ -189,8 +193,9 @@ class ScalarConstraint(Constraint):
             "<tag> <comparator> <scalar>".
         enforce (bool, optional): If False, only monitor the constraint
             without adjusting the loss. Defaults to True.
-        rescale_factor (Number, optional): Factor to scale the
-            constraint-adjusted loss. Defaults to 1.5.
+        rescale_factor (Number | RescaleStrategy, optional): Factor to scale the
+            constraint-adjusted loss. Defaults to 1.5. Can also be a RescaleStrategy
+            for dynamic rescaling.
 
     Raises:
         TypeError: If a provided attribute has an incompatible type.
@@ -208,7 +213,7 @@ class ScalarConstraint(Constraint):
         scalar: Number,
         name: str = None,
         enforce: bool = True,
-        rescale_factor: Number = 1.5,
+        rescale_factor: Number | RescaleStrategy = 1.5,
     ) -> None:
         """Initializes a ScalarConstraint instance.
 
@@ -223,9 +228,10 @@ class ScalarConstraint(Constraint):
                 random suffix.
             enforce (bool, optional): If False, only monitor the constraint
                 without adjusting the loss. Defaults to True.
-            rescale_factor (Number, optional): Factor to scale the
+            rescale_factor (Number | RescaleStrategy, optional): Factor to scale the
                 constraint-adjusted loss. Defaults to 1.5. Should be greater
-                than 1 to give weight to the constraint.
+                than 1 to give weight to the constraint. Can also be a RescaleStrategy
+                for dynamic scaling.
 
         Raises:
             TypeError: If a provided attribute has an incompatible type.
@@ -333,8 +339,9 @@ class BinaryConstraint(Constraint):
             "<operand_left> <comparator> <operand_right>".
         enforce (bool, optional): If False, only monitor the constraint
             without adjusting the loss. Defaults to True.
-        rescale_factor (Number, optional): Factor to scale the
-            constraint-adjusted loss. Defaults to 1.5.
+        rescale_factor (Number | RescaleStrategy, optional): Factor to scale the
+            constraint-adjusted loss. Defaults to 1.5. Can also be a RescaleStrategy
+            for dynamic rescaling.
 
     Raises:
         TypeError: If a provided attribute has an incompatible type.
@@ -352,7 +359,7 @@ class BinaryConstraint(Constraint):
         operand_right: str | Transformation,
         name: str = None,
         enforce: bool = True,
-        rescale_factor: Number = 1.5,
+        rescale_factor: Number | RescaleStrategy = 1.5,
     ) -> None:
         """Initializes a BinaryConstraint instance.
 
@@ -367,8 +374,9 @@ class BinaryConstraint(Constraint):
                 "<operand_left> <comparator> <operand_right>".
             enforce (bool, optional): If False, only monitor the constraint
                 without adjusting the loss. Defaults to True.
-            rescale_factor (Number, optional): Factor to scale the
-                constraint-adjusted loss. Defaults to 1.5.
+            rescale_factor (Number | RescaleStrategy, optional): Factor to scale the
+                constraint-adjusted loss. Defaults to 1.5. Can also be a RescaleStrategy
+                for dynamic rescaling.
 
         Raises:
             TypeError: If a provided attribute has an incompatible type.
@@ -499,7 +507,7 @@ class SumConstraint(Constraint):
         weights_right: list[Number] = None,
         name: str = None,
         enforce: bool = True,
-        rescale_factor: Number = 1.5,
+        rescale_factor: Number | RescaleStrategy = 1.5,
     ) -> None:
         """Initializes the SumConstraint.
 
@@ -517,8 +525,9 @@ class SumConstraint(Constraint):
                 If None, it's auto-generated. Defaults to None.
             enforce (bool, optional): If False, only monitor the constraint
                 without adjusting the loss. Defaults to True.
-            rescale_factor (Number, optional): Factor to scale the
-                constraint-adjusted loss. Defaults to 1.5.
+            rescale_factor (Number | RescaleStrategy, optional): Factor to scale the
+                constraint-adjusted loss. Defaults to 1.5. Can also be a RescaleStrategy
+                for dynamic rescaling.
 
         Raises:
             TypeError: If a provided attribute has an incompatible type.
@@ -594,12 +603,13 @@ class SumConstraint(Constraint):
             self.weights_right = ones(len(tags_right), device=self.device)
 
         # Calculate directions based on constraint operator
+        # Convention matches BinaryConstraint: positive direction → gradient descent pushes value down
         if comparator in ["<", "<="]:
-            self.direction_left = -1
-            self.direction_right = 1
-        elif comparator in [">", ">="]:
             self.direction_left = 1
             self.direction_right = -1
+        elif comparator in [">", ">="]:
+            self.direction_left = -1
+            self.direction_right = 1
         self.comparator = COMPARATOR_MAP[comparator]
 
     def check_constraint(self, data: dict[str, Tensor]) -> tuple[Tensor, Tensor]:
@@ -1045,7 +1055,7 @@ class ANDConstraint(Constraint):
         *constraints: Constraint,
         name: str = None,
         enforce: bool = False,
-        rescale_factor: Number = 1.5,
+        rescale_factor: Number | RescaleStrategy = 1.5,
     ) -> None:
         """A composite constraint that enforces the logical AND of multiple constraints.
 
@@ -1063,7 +1073,7 @@ class ANDConstraint(Constraint):
                 " AND ".
             enforce (bool, optional): If True, the constraint will be monitored
                 but not enforced. Defaults to False.
-            rescale_factor (Number, optional): A scaling factor applied when rescaling
+            rescale_factor (Number | RescaleStrategy, optional): A scaling factor applied when rescaling
                 corrections. Defaults to 1.5.
 
         Attributes:
@@ -1170,7 +1180,7 @@ class ORConstraint(Constraint):
         *constraints: Constraint,
         name: str = None,
         enforce: bool = False,
-        rescale_factor: Number = 1.5,
+        rescale_factor: Number | RescaleStrategy = 1.5,
     ) -> None:
         """A composite constraint that enforces the logical OR of multiple constraints.
 
@@ -1188,7 +1198,7 @@ class ORConstraint(Constraint):
                 " OR ".
             enforce (bool, optional): If True, the constraint will be monitored
                 but not enforced. Defaults to False.
-            rescale_factor (Number, optional): A scaling factor applied when rescaling
+            rescale_factor (Number | RescaleStrategy, optional): A scaling factor applied when rescaling
                 corrections. Defaults to 1.5.
 
         Attributes:
@@ -1276,3 +1286,88 @@ class ORConstraint(Constraint):
                     total_direction[layer] += satisfaction * dir
 
         return total_direction
+
+
+class PDEConstraint(Constraint):
+    # NOTE: Requires core.network_uses_grad=True
+
+    def __init__(
+        self,
+        layer_base: str,
+        tag_residual: str,
+        comparator: Literal["<", "<=", ">", ">="],
+        scalar: Number,
+        name: str = None,
+        enforce: bool = True,
+        rescale_factor: Number = 1.5,
+        eps: float = 1e-20,
+    ):
+        # Type checking
+        validate_type("layer_base", layer_base, str)
+        validate_type("tag_residual", tag_residual, str)
+        validate_comparator("comparator", comparator, COMPARATOR_MAP)
+        validate_type("scalar", scalar, Number)
+        validate_type("eps", eps, float)
+
+        # Check if provided layer and tag are defined in descriptor
+        if not self.descriptor.has_tag(tag_residual):
+            raise ValueError(f"Tag '{tag_residual}' is not defined in the descriptor.")
+
+        if not self.descriptor.has_layer(layer_base):
+            raise ValueError(f"Base layer '{layer_base}' is not defined in the descriptor.")
+
+        # Compose constraint name
+        if name is None:
+            name = f"{tag_residual} {comparator} {scalar}"
+
+        # Init parent class
+        super().__init__(
+            {tag_residual},
+            name=name,
+            enforce=enforce,
+            rescale_factor=rescale_factor,
+        )
+
+        # Init variables
+        self.layer_base = layer_base
+        self.tag_residual = tag_residual
+        self.comparator = comparator
+        self.scalar = scalar
+        self.eps = eps
+
+        # Calculate directions based on constraint operator
+        if comparator in ["<", "<="]:
+            self.direction = 1
+        elif comparator in [">", ">="]:
+            self.direction = -1
+        self.comparator = COMPARATOR_MAP[comparator]
+
+        # Get the layer corresponding to the residual tag
+        self.layer_residual, _ = self.descriptor.location(tag_residual)
+
+    def check_constraint(self, data: dict[str, Tensor]) -> tuple[Tensor, Tensor]:
+        # Extract residual
+        residual = self.descriptor.select(self.tag_residual, data)
+
+        # Extract grad base layer
+        layer_base = data[self.layer_base]
+
+        # Calculate ∂residual/∂output
+        dres_dout = grad(residual.sum(), layer_base, retain_graph=True, create_graph=True)[0]
+
+        # Calculate directions
+        dres_dout_norm = torch.norm(dres_dout, p=2, dim=-1, keepdim=True).detach()
+        dres_dout_norm = torch.where(
+            dres_dout_norm > 0.0, dres_dout_norm + self.eps, dres_dout_norm - self.eps
+        )
+        self.adjusted_direction = self.direction / dres_dout_norm
+
+        # Calculate current constraint result
+        result = self.comparator(residual, self.scalar).float()
+        return result, ones_like(result)
+
+    def calculate_direction(self, data: dict[str, Tensor]) -> dict[str, Tensor]:
+        # NOTE currently only works for dense layers due
+        # to neuron to index translation
+
+        return {self.layer_residual: self.adjusted_direction}

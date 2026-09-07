@@ -6,6 +6,8 @@ Responsibilities:
 - Handle gradient computation and CGGD application.
 """
 
+from collections.abc import Callable
+
 import torch
 from torch import Tensor, no_grad
 from torch.linalg import vector_norm
@@ -34,7 +36,7 @@ class ConstraintEngine:
         metric_manager: MetricManager,
         device: torch.device,
         epsilon: float,
-        aggregator: callable,
+        aggregator: Callable,
         enforce_all: bool,
     ) -> None:
         """Initialize the ConstraintEngine.
@@ -138,9 +140,10 @@ class ConstraintEngine:
             directions = constraint.calculate_direction(data)
 
             # Log CSR
-            csr = (torch.sum(checks * mask) / torch.sum(mask)).unsqueeze(0)
-            self.metric_manager.accumulate(f"{constraint.name}/{phase}", csr)
-            self.metric_manager.accumulate(f"CSR/{phase}", csr)
+            csr = (torch.sum(checks * mask) / torch.sum(mask).clamp_min(1)).unsqueeze(0)
+            if self.metric_manager is not None:
+                self.metric_manager.accumulate(f"{constraint.name}/{phase}", csr)
+                self.metric_manager.accumulate(f"CSR/{phase}", csr)
 
             # Skip adjustment if not enforcing
             if not enforce or not constraint.enforce or not self.enforce_all or phase != "train":
@@ -149,17 +152,31 @@ class ConstraintEngine:
             # Compute constraint-based rescale loss
             for key in constraint.layers & self.descriptor.variable_layers:
                 with no_grad():
-                    rescale = (1 - checks) * directions[key] * constraint.rescale_factor
+                    rescale_factor = constraint.compute_rescale_factor(
+                        data, checks, mask, directions, loss
+                    )
+                    rescale = (1 - checks) * directions[key] * rescale_factor
 
                 # Determine which gradients to use based on the descriptor
                 gradients_layer = self.descriptor.get_layer(key).gradients_from or key
-                total_rescale_loss += self.aggregator(
-                    data[key] * rescale * norm_loss_grad[gradients_layer]
-                )
+
+                if gradients_layer not in norm_loss_grad:
+                    raise RuntimeError(
+                        f"Cannot get gradients for layer '{key}': "
+                        f"gradients_from='{gradients_layer}' has no loss gradients. "
+                        "Ensure this layer has affects_loss=True in the Descriptor."
+                    )
+
+                grad = norm_loss_grad[gradients_layer]
+
+                extra_dims = data[key].ndim - grad.ndim
+                grad = grad.reshape(*grad.shape, *([1] * extra_dims))
+
+                total_rescale_loss += self.aggregator(data[key] * rescale * grad)
 
         return loss + total_rescale_loss
 
-    def _calculate_loss_gradients(self, loss: Tensor, data: dict[str, Tensor]) -> None:
+    def _calculate_loss_gradients(self, loss: Tensor, data: dict[str, Tensor]) -> dict[str, Tensor]:
         """Compute and store normalized loss gradients for variable layers.
 
         For each layer that affects the loss, computes the gradient of the loss
@@ -187,14 +204,12 @@ class ConstraintEngine:
 
             if grad is None:
                 raise RuntimeError(
-                    f"Unable to compute loss gradients for layer '{key}'. "
-                    "Set has_loss=False in Descriptor if this layer does not affect loss."
+                    f"Unable to compute gradients w.r.t. loss for layer '{key}'. "
+                    "Set affects_loss=False in Descriptor if this layer does not affect loss."
                 )
 
             grad_flat = grad.view(grad.shape[0], -1)
-            norm_loss_grad[key] = (
-                vector_norm(grad_flat, dim=1, ord=2, keepdim=True).clamp(min=self.epsilon).detach()
-            )
+            norm_loss_grad[key] = vector_norm(grad_flat, dim=1, ord=2, keepdim=True).detach()
 
         return norm_loss_grad
 

@@ -9,6 +9,7 @@ import os
 from collections.abc import Callable
 from pathlib import Path
 
+import torch
 from torch import Tensor, load, save
 from torch.nn import Module
 from torch.optim import Optimizer
@@ -32,6 +33,7 @@ class CheckpointManager:
         network: Module,
         optimizer: Optimizer,
         metric_manager: MetricManager,
+        device: torch.device,
         save_dir: str = "checkpoints",
         create_dir: bool = False,
         report_save: bool = False,
@@ -45,6 +47,7 @@ class CheckpointManager:
             network (torch.nn.Module): The model to save/load.
             optimizer (torch.optim.Optimizer): The optimizer to save/load.
             metric_manager (MetricManager): Manages metric states for checkpointing.
+            device (torch.device): The device to load checkpoints to.
             save_dir (str, optional): Directory to save checkpoints. Defaults to 'checkpoints'.
             create_dir (bool, optional): Whether to create `save_dir` if it does not exist.
                 Defaults to False.
@@ -60,6 +63,8 @@ class CheckpointManager:
         validate_type("network", network, Module)
         validate_type("optimizer", optimizer, Optimizer)
         validate_type("metric_manager", metric_manager, MetricManager)
+        validate_type("device", device, torch.device)
+        validate_type("save_dir", save_dir, str)
         validate_type("create_dir", create_dir, bool)
         validate_type("report_save", report_save, bool)
 
@@ -76,6 +81,7 @@ class CheckpointManager:
         self.network = network
         self.optimizer = optimizer
         self.metric_manager = metric_manager
+        self.device = device
         self.save_dir = save_dir
         self.report_save = report_save
 
@@ -172,7 +178,7 @@ class CheckpointManager:
         """
         filepath = os.path.join(self.save_dir, filename)
 
-        checkpoint = load(filepath, weights_only=True)
+        checkpoint = load(filepath, weights_only=True, map_location=self.device)
         self.network.load_state_dict(checkpoint["network_state"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state"])
         self.best_metric_values = checkpoint["best_metrics"]

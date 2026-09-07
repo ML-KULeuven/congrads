@@ -72,16 +72,17 @@ def validate_iterable(
             raise TypeError(f"Argument {name} cannot be None.")
         return
 
-    if len(value) == 0:
-        if not allow_empty:
-            raise TypeError(f"Argument {name} cannot be an empty iterable.")
-        return
-
     if not isinstance(value, allowed_iterables):
         raise TypeError(
             f"Argument {name} '{str(value)}' is not supported. "
             f"Only values of type {str(allowed_iterables)} are allowed."
         )
+
+    if len(value) == 0:
+        if not allow_empty:
+            raise TypeError(f"Argument {name} cannot be an empty iterable.")
+        return
+
     if not all(isinstance(element, expected_element_types) for element in value):
         raise TypeError(
             f"Invalid elements in {name} '{str(value)}'. "

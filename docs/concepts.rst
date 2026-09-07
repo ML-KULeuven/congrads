@@ -14,28 +14,28 @@ PyTorch's `Dataset` class provides a standardized way to represent datasets, mak
 By implementing custom dataset classes that inherit from `torch.utils.data.Dataset`, users can define how data is accessed, transformed, and batched. 
 This ensures compatibility with PyTorch's `DataLoader`, enabling seamless integration into machine learning pipelines with minimal effort.
 
-We provide some built-in datasets, amongst others :meth:`Bias Correction <congrads.datasets.BiasCorrection>` and :meth:`Family Income <congrads.datasets.FamilyIncome>`, both featuring automatic downloading and built-in preprocessing transformations.
+We provide some built-in datasets, amongst others :class:`Bias Correction <congrads.datasets.registry.BiasCorrection>` and :class:`Family Income <congrads.datasets.registry.FamilyIncome>`, both featuring automatic downloading and built-in preprocessing transformations.
 These datasets were initially used to evaluate the feasibility of the Constraint-Guided Gradient Descent (CGGD) technique (see the `manuscript`_ for details).
 
 .. _manuscript: https://www.sciencedirect.com/science/article/abs/pii/S0925231223007592
 
 .. code-block:: python
 
-    from congrads.datasets import FamilyIncome
-    from congrads.utils import preprocess_FamilyIncome
+    from congrads.datasets.registry import FamilyIncome
+    from congrads.utils.preprocessors import preprocess_FamilyIncome
 
     data = FamilyIncome("./datasets", preprocess_FamilyIncome, download=True)
 
 
 When using your own dataset, ensure that it extends the PyTorch `Dataset <https://pytorch.org/docs/stable/data.html#torch.utils.data.Dataset>`_ class and implements the :meth:`__len__() <torch.utils.data.Dataset.__len__>` and :meth:`__getitem__() <torch.utils.data.Dataset.__getitem__>` methods.
-Alse make sure that the dataset returns data in the form of a dictionary with keys "input" and "target", representing the input features and target labels, respectively (additional keys are allowed).
+Also make sure that the dataset returns data in the form of a dictionary with keys "input" and "target", representing the input features and target labels, respectively (additional keys are allowed).
 
 The provided function ```split_data_loaders``` can be used to divide the data into three parts with configurable ratios: for training, validation and testing.
 The CongradsCore requires these loaders to function. You can also write your own function to divide the data into loaders.
 
 .. code-block:: python
 
-    from congrads.utils import split_data_loaders
+    from congrads.utils.utility import split_data_loaders
 
     loaders = split_data_loaders(
         data,
@@ -72,8 +72,8 @@ When placing constraints on your network, you will use the layer names and an in
 We also provide a basic Multi-Layer Perceptron (MLP) network using ReLU activations that can be easily configured to match your dataset format.
 
 .. code-block:: python
-    
-    from congrads.networks import MLPNetwork
+
+    from congrads.networks.registry import MLPNetwork
 
     network = MLPNetwork(
         n_inputs=6, n_outputs=2, n_hidden_layers=3, hidden_dim=10
@@ -93,7 +93,7 @@ Refer to the picture below for a visual representation of these concepts in your
   :width: 400
   :align: center
 
-The :meth:`descriptor.add_layer(key, ...) <congrads.descriptor.add_layer>` and :meth:`descriptor.add_tag(name, layer, index, ...) <congrads.descriptor.add_tag>` methods are used to set up this descriptor and prepare it for use. 
+The :meth:`descriptor.add_layer(key, ...) <congrads.descriptor.Descriptor.add_layer>` and :meth:`descriptor.add_tag(name, layer, index, ...) <congrads.descriptor.Descriptor.add_tag>` methods are used to set up this descriptor and prepare it for use.
 You must assign a tag to a neuron (or multiple) that you plan to put constraints on so it can be referenced easily.
 
 .. note::
@@ -123,14 +123,18 @@ Constraints
 
 Constraints are a fundamental part of the Congrads toolbox, allowing you to define relationships between different sections of your dataset—or, in other words, between neurons in your network.
 
-To set up a constraint, the names assigned in the descriptor are used to reference specific data. 
-The relationship between them is defined using a comparator function, which can be one of PyTorch’s built-in comparison functions (```torch.lt```, ```torch.gt```, ```torch.le```, ```torch.ge```).
+To set up a constraint, the names assigned in the descriptor are used to reference specific data.
+The relationship between them is defined using a comparator, passed as one of the string operators ``">"``, ``"<"``, ``">="`` or ``"<="``.
 
-Additionally, constraints can accept transformations instead of direct descriptor names. 
+Additionally, constraints can accept transformations instead of direct descriptor names.
 This enables you to apply a function or transformation to the data before evaluating whether the constraint is satisfied.
 This can be useful to undo an operation that was done in preprocessing for example.
 
 .. code-block:: python
+
+    from congrads.constraints.base import Constraint
+    from congrads.constraints.registry import BinaryConstraint, ScalarConstraint
+    from congrads.transformations.registry import DenormalizeMinMax
 
     Constraint.descriptor = descriptor
     Constraint.device = device
@@ -165,13 +169,13 @@ The above code translates into the following:
     You can use a transformation to first denormalize each neuron, to then make the comparison on original data.
 
 It is possible to implement your own custom constraints to allow for additional complexity in your network.
-A new constraint must extend the base ```Constraint``` class and implement the :meth:`check_constraint(...) <congrads.constraints.Constraint.check_constraint>` :meth:`calculate_direction(...) <congrads.constraints.Constraint.calculate_direction>` methods.
+A new constraint must extend the base ```Constraint``` class and implement the :meth:`check_constraint(...) <congrads.constraints.base.Constraint.check_constraint>` and :meth:`calculate_direction(...) <congrads.constraints.base.Constraint.calculate_direction>` methods.
 Please refer to the built in constraints for examples how to achieve this.
 
 MetricManager
 -------------
 
-To be able to track the Constraint Satisfaction Ratio (CSR), a score between 0 and 1 that indicates how well the constraint is satisfied, the MetricManager 
+To be able to track the Constraint Satisfaction Ratio (CSR), a score between 0 and 1 that indicates how well the constraint is satisfied, the MetricManager keeps a running, per-group accumulation of this and other metrics (such as the loss) throughout training, validation and testing.
 
 All metric values can be calculated and retrieved using :meth:`metric_manager.aggregate(group) <congrads.metrics.MetricManager.aggregate>`, after which they can be logged to TensorBoard, a CSV file or other storage methods using the hooks, such as the example below.
 Metrics having group "during_training" will update every epoch, having group "after_training" are calculated only when the training is finished.
@@ -181,7 +185,7 @@ The :meth:`metric_manager.reset(group) <congrads.metrics.MetricManager.reset>` m
 
     from torch.utils.tensorboard import SummaryWriter
     from congrads.metrics import MetricManager
-    from congrads.utils import CSVLogger
+    from congrads.utils.utility import CSVLogger
 
     # Initialize metric manager
     metric_manager = MetricManager()
@@ -225,7 +229,7 @@ It brings together these elements to form a cohesive framework that ensures smoo
         device=device,
     )
 
-You can then call :meth:`core.fit(...) <congrads.core.CongradsCore.fit>` to start the training process.
+You can then call :meth:`core.fit(...) <congrads.core.congradscore.CongradsCore.fit>` to start the training process.
 
 .. code-block:: python
 

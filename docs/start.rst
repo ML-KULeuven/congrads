@@ -57,14 +57,31 @@ We already know certain things in advance that the predictions must satisfy, we 
 For example, we know that the daily maximum temperature must always be larger than or equal to the daily minimum temperature.
 By using Congrads, we can easily integrate these constraints into our training procedure to improve the model's accuracy and reliability.
 
-1. First, select the device to run your code on with.
+1. Import the classes and functions you will need.
+
+.. code-block:: python
+
+    import torch
+    from torch.nn import MSELoss
+    from torch.optim import Adam
+
+    from congrads.constraints.base import Constraint
+    from congrads.constraints.registry import BinaryConstraint, ScalarConstraint
+    from congrads.core.congradscore import CongradsCore
+    from congrads.datasets.registry import BiasCorrection
+    from congrads.descriptor import Descriptor
+    from congrads.networks.registry import MLPNetwork
+    from congrads.utils.preprocessors import preprocess_BiasCorrection
+    from congrads.utils.utility import split_data_loaders
+
+2. Select the device to run your code on with.
 
 .. code-block:: python
 
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if use_cuda else "cpu")
 
-2. Next, load your data and split it into training, validation and testing subsets.
+3. Next, load your data and split it into training, validation and testing subsets.
 
 .. code-block:: python
 
@@ -78,21 +95,21 @@ By using Congrads, we can easily integrate these constraints into our training p
         test_loader_args={"shuffle": False},
     )
 
-3. Instantiate your neural network, make sure the dimensions match up with your data.
+4. Instantiate your neural network, make sure the dimensions match up with your data.
 
 .. code-block:: python
 
     network = MLPNetwork(25, 2, n_hidden_layers=3, hidden_dim=35)
     network = network.to(device)
 
-4. Choose your loss function and optimizer.
+5. Choose your loss function and optimizer.
 
 .. code-block:: python
 
     criterion = MSELoss()
     optimizer = Adam(network.parameters(), lr=0.001)
 
-5. Then, setup the descriptor, that will attach names to specific parts of your network.
+6. Then, setup the descriptor, that will attach names to specific parts of your network.
 
 .. code-block:: python
 
@@ -101,7 +118,7 @@ By using Congrads, we can easily integrate these constraints into our training p
     descriptor.add_tag("Tmax", "output", 0)
     descriptor.add_tag("Tmin", "output", 1)
 
-6. Define your constraints on the network.
+7. Define your constraints on the network.
 
 .. code-block:: python
 
@@ -115,14 +132,16 @@ By using Congrads, we can easily integrate these constraints into our training p
         BinaryConstraint("Tmax", ">", "Tmin"),
     ]
 
-7. Instantiate core, and start the training.
+8. Instantiate core, and start the training.
 
 .. code-block:: python
 
     core = CongradsCore(
         descriptor=descriptor,
         constraints=constraints,
-        loaders=loaders,
+        dataloader_train=loaders[0],
+        dataloader_valid=loaders[1],
+        dataloader_test=loaders[2],
         network=network,
         criterion=criterion,
         optimizer=optimizer,
@@ -131,4 +150,4 @@ By using Congrads, we can easily integrate these constraints into our training p
 
     core.fit(max_epochs=50)
 
-For more examples, refer to the GitHub repository's `example folder <https://github.com/ML-KULeuven/congrads/tree/main/examples>`_ or the `notebooks folder <https://github.com/ML-KULeuven/congrads/tree/main/notebooks>`_ for more examples.
+For more examples, refer to the GitHub repository's `example folder <https://github.com/ML-KULeuven/congrads/tree/main/examples>`_ or the :ref:`Examples <examples>` section of this documentation for more in-depth, runnable notebooks.

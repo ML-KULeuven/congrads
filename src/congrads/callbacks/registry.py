@@ -7,7 +7,9 @@ collect all callback implementations in one place for easy reference
 and import, and can be extended as new callbacks are added.
 """
 
-from torch import Tensor
+from typing import Any
+
+from torch import Tensor, stack
 from torch.utils.tensorboard import SummaryWriter
 
 from ..callbacks.base import Callback
@@ -39,8 +41,8 @@ class LoggerCallback(Callback):
     def __init__(
         self,
         metric_manager: MetricManager,
-        tensorboard_logger: SummaryWriter,
-        csv_logger: CSVLogger,
+        tensorboard_logger: SummaryWriter | None,
+        csv_logger: CSVLogger | None,
         *,
         aggregate_interval: int = 1,
         store_interval: int = 1,
@@ -73,7 +75,7 @@ class LoggerCallback(Callback):
         # Cached metrics on GPU by epoch
         self._accumulated_metrics: dict[int, dict[str, Tensor]] = {}
 
-    def on_epoch_end(self, data: dict[str, any], ctx: dict[str, any]):
+    def on_epoch_end(self, data: dict[str, Any], ctx: dict[str, Any]):
         """Handle end-of-epoch training logic.
 
         At the end of each epoch, this method may:
@@ -125,7 +127,7 @@ class LoggerCallback(Callback):
 
         return data
 
-    def on_test_end(self, data: dict[str, any], ctx: dict[str, any]):
+    def on_test_end(self, data: dict[str, Any], ctx: dict[str, Any]):
         """Aggregate and store test metrics at the end of testing.
 
         Test metrics are aggregated once and written immediately to disk.
@@ -154,12 +156,28 @@ class LoggerCallback(Callback):
             metrics: Mapping from epoch to a dictionary of metric name to scalar tensor.
                 Tensors are expected to be detached and graph-free.
         """
+        entries: list[tuple[int, str]] = []
+        tensors: list[Tensor] = []
+
         for epoch, metrics_by_name in metrics.items():
             for name, value in metrics_by_name.items():
-                cpu_value = value.item()
-                self.tensorboard_logger.add_scalar(name, cpu_value, epoch)
-                self.csv_logger.add_value(name, cpu_value, epoch)
+                entries.append((epoch, name))
+                tensors.append(value)
+
+        if tensors:
+            cpu_values = stack(tensors).cpu()
+            for i, (epoch, name) in enumerate(entries):
+                scalar = cpu_values[i].item()
+
+                if self.tensorboard_logger is not None:
+                    self.tensorboard_logger.add_scalar(name, scalar, epoch)
+
+                if self.csv_logger is not None:
+                    self.csv_logger.add_value(name, scalar, epoch)
 
         # Flush/save
-        self.tensorboard_logger.flush()
-        self.csv_logger.save()
+        if self.tensorboard_logger is not None:
+            self.tensorboard_logger.flush()
+
+        if self.csv_logger is not None:
+            self.csv_logger.save()

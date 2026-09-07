@@ -513,3 +513,28 @@ class Seeder:
 
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
+
+
+def lhs(d, n, rng=None):
+    """Generate a Latin Hypercube Sample.
+
+    Args:
+        d (int): Number of dimensions.
+        n (int): Number of sample points.
+        rng (numpy.random.Generator, optional): Random number generator to
+            use. If None, a default one is created. Defaults to None.
+
+    Returns:
+        numpy.ndarray: Array of shape (n, d) with samples in [0, 1)^d.
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+
+    samples = np.empty((n, d))
+    for j in range(d):
+        # Divide [0,1) into n equal intervals, one random point per interval
+        perm = rng.permutation(n)
+        u = rng.random(n)
+        samples[:, j] = (perm + u) / n
+
+    return samples

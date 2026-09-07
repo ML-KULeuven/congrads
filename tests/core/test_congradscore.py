@@ -6,6 +6,7 @@ from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from congrads.core.congradscore import CongradsCore
+from congrads.descriptor import Descriptor
 
 # ---------------------------------------------------------------------
 # Fixtures
@@ -41,7 +42,10 @@ def test_loader(dummy_dataset):
 
 @pytest.fixture
 def mock_descriptor():
-    return MagicMock()
+    d = Descriptor()
+    d.add_layer("output")
+    d.add_tag("out", "output")
+    return d
 
 
 @pytest.fixture

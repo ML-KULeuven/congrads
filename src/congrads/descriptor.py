@@ -31,6 +31,8 @@ __all__ = ["Descriptor"]
 
 @dataclass(frozen=True)
 class Layer:
+    """Metadata for a registered model output layer."""
+
     key: str
     constant: bool
     affects_loss: bool
@@ -39,6 +41,8 @@ class Layer:
 
 @dataclass(frozen=True)
 class Tag:
+    """Maps a semantic name to a layer and optional feature index."""
+
     layer: str
     index: int | tuple[int, ...] | None
 
@@ -237,9 +241,7 @@ class Descriptor:
         Raises:
             ValueError: If the tag is not registered.
         """
-        tag_info = self._tags.get(tag)
-        if tag_info is None:
-            raise ValueError(f"Tag '{tag}' is not registered in descriptor.")
+        tag_info = self.get_tag(tag)
         return tag_info.layer, tag_info.index
 
     def select(self, tag: str, data: dict[str, Tensor]) -> Tensor:

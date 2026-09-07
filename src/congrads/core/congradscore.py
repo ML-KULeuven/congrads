@@ -20,6 +20,7 @@ Key features:
 
 """
 
+import warnings
 from collections.abc import Callable
 
 import torch
@@ -40,6 +41,7 @@ from ..core.constraint_engine import ConstraintEngine
 from ..core.epoch_runner import EpochRunner
 from ..descriptor import Descriptor
 from ..metrics import MetricManager
+from ..utils.validation import validate_type
 
 __all__ = ["CongradsCore"]
 
@@ -98,7 +100,7 @@ class CongradsCore:
             network_uses_grad (bool, optional): A flag indicating if the network
                 contains gradient calculation computations. Default is False.
             epsilon (float, optional): A small value to avoid division by zero
-                in gradient calculations. Default is 1e-10.
+                in gradient calculations. Default is 1e-6.
             constraint_aggregator (Callable[..., Tensor], optional): A function
                 to aggregate the constraint rescale loss. Default is `sum`.
             enforce_all (bool, optional): If set to False, constraints will only be monitored and
@@ -120,6 +122,21 @@ class CongradsCore:
             as at least one variable layer is required for the constraint logic
             to influence the training process.
         """
+        # Type checking
+        validate_type("descriptor", descriptor, Descriptor)
+        validate_type("network", network, Module)
+        validate_type("optimizer", optimizer, Optimizer)
+        validate_type("device", device, torch.device)
+        validate_type("epsilon", epsilon, float)
+        validate_type("enforce_all", enforce_all, bool)
+
+        if not descriptor.variable_layers:
+            warnings.warn(
+                "Descriptor has no variable layers. Constraint-guided adjustments "
+                "will have no effect on training.",
+                stacklevel=2,
+            )
+
         # Init object variables
         self.device = device
         self.network = network.to(device)
@@ -174,6 +191,13 @@ class CongradsCore:
         # Initialize constraint metrics
         if self.metric_manager is not None:
             self._initialize_metrics()
+
+        # Warn if constraints are disabled globally
+        if self.enforce_all is False:
+            warnings.warn(
+                "Constraint enforcement is disabled globally because CongradsCore(enforce_all=False) was specified.",
+                stacklevel=2,
+            )
 
     def _initialize_metrics(self) -> None:
         """Register metrics for loss, constraint satisfaction ratio (CSR), and constraints.
@@ -239,6 +263,7 @@ class CongradsCore:
         if self.callback_manager:
             self.callback_manager.run("on_train_start", {"epoch": start_epoch})
 
+        epoch = start_epoch
         for epoch in tqdm(
             range(start_epoch, max_epochs),
             initial=start_epoch,
@@ -260,6 +285,9 @@ class CongradsCore:
         if self.callback_manager:
             self.callback_manager.run("on_train_end", {"epoch": epoch})
 
+        if self.checkpoint_manager:
+            self.checkpoint_manager.save(epoch, final_checkpoint_name)
+
         if test_model:
             if self.callback_manager:
                 self.callback_manager.run("on_test_start", {"epoch": epoch})
@@ -268,6 +296,3 @@ class CongradsCore:
 
             if self.callback_manager:
                 self.callback_manager.run("on_test_end", {"epoch": epoch})
-
-        if self.checkpoint_manager:
-            self.checkpoint_manager.save(epoch, final_checkpoint_name)

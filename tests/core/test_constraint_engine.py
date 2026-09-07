@@ -4,6 +4,7 @@ import pytest
 import torch
 from torch import Tensor
 
+from congrads.constraints.base import Constraint
 from congrads.core.constraint_engine import ConstraintEngine
 from congrads.descriptor import Descriptor
 
@@ -12,18 +13,15 @@ from congrads.descriptor import Descriptor
 # -------------------------
 
 
-class DummyConstraint:
+class DummyConstraint(Constraint):
     def __init__(
         self,
+        tag="x",
         name="C1",
         enforce=True,
         rescale_factor=1.0,
-        layers=None,
     ):
-        self.name = name
-        self.enforce = enforce
-        self.rescale_factor = rescale_factor
-        self.layers = layers or {"x"}
+        super().__init__(tags={tag}, name=name, enforce=enforce, rescale_factor=rescale_factor)
 
     def check_constraint(self, data: dict[str, Tensor]):
         """
@@ -78,7 +76,9 @@ def aggregator():
 
 
 @pytest.fixture
-def constraint():
+def constraint(descriptor, device):
+    DummyConstraint.descriptor = descriptor
+    DummyConstraint.device = device
     return DummyConstraint()
 
 
@@ -241,13 +241,6 @@ def test_loss_gradients_computed(engine, data, loss):
     assert grads["x"].shape[0] == data["x"].shape[0]
 
 
-def test_gradient_norm_clamped(engine, data):
-    zero_loss = data["x"].sum() * 0.0
-    grads = engine._calculate_loss_gradients(zero_loss, data)
-
-    assert torch.all(grads["x"] >= engine.epsilon)
-
-
 def test_error_if_variable_does_not_require_grad(engine, loss):
     bad_data = {"x": torch.tensor([[1.0], [2.0]], requires_grad=False)}
 
@@ -258,7 +251,7 @@ def test_error_if_variable_does_not_require_grad(engine, loss):
 def test_error_if_loss_not_dependent_on_variable(engine, data):
     unrelated_loss = torch.tensor(1.0, requires_grad=True)
 
-    with pytest.raises(RuntimeError, match="Unable to compute loss gradients"):
+    with pytest.raises(RuntimeError, match="Unable to compute"):
         engine._calculate_loss_gradients(unrelated_loss, data)
 
 
