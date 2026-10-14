@@ -267,3 +267,267 @@ def test_aggregator_called(engine, data, loss, monkeypatch):
     engine.train(data, loss)
 
     spy.assert_called()
+
+
+# -------------------------
+# Gradient Tracking & Lazy Evaluation
+# -------------------------
+
+
+def test_check_constraint_runs_without_grad(engine, constraint, data, loss, monkeypatch):
+    grad_enabled = []
+    original = constraint.check_constraint
+
+    def recording_check(d):
+        grad_enabled.append(torch.is_grad_enabled())
+        return original(d)
+
+    monkeypatch.setattr(constraint, "check_constraint", recording_check)
+
+    engine.train(data, loss)
+    engine.validate(data, loss)
+
+    assert grad_enabled == [False, False]
+
+
+def test_directions_and_rescale_only_computed_when_enforcing(
+    engine, constraint, data, loss, monkeypatch
+):
+    direction_spy = MagicMock(side_effect=constraint.calculate_direction)
+    rescale_spy = MagicMock(side_effect=constraint.compute_rescale_factor)
+    monkeypatch.setattr(constraint, "calculate_direction", direction_spy)
+    monkeypatch.setattr(constraint, "compute_rescale_factor", rescale_spy)
+
+    engine.validate(data, loss)
+    engine.test(data, loss)
+    direction_spy.assert_not_called()
+    rescale_spy.assert_not_called()
+
+    constraint.enforce = False
+    engine.train(data, loss)
+    direction_spy.assert_not_called()
+    rescale_spy.assert_not_called()
+
+    constraint.enforce = True
+    engine.train(data, loss)
+    direction_spy.assert_called_once()
+    rescale_spy.assert_called_once()
+
+
+def test_loss_gradients_only_computed_when_enforcing(engine, data, loss, monkeypatch):
+    spy = MagicMock(side_effect=engine._calculate_loss_gradients)
+    monkeypatch.setattr(engine, "_calculate_loss_gradients", spy)
+
+    engine.validate(data, loss)
+    engine.test(data, loss)
+    spy.assert_not_called()
+
+    engine.enforce_all = False
+    engine.train(data, loss)
+    spy.assert_not_called()
+
+    engine.enforce_all = True
+    engine.train(data, loss)
+    spy.assert_called_once()
+
+
+# -------------------------
+# Multi-layer Constraints
+# -------------------------
+
+
+class MultiLayerConstraint(DummyConstraint):
+    def __init__(self, tags, name="ML", rescale_factor=2.0):
+        Constraint.__init__(self, tags=tags, name=name, enforce=True, rescale_factor=rescale_factor)
+
+    def calculate_direction(self, data):
+        return {layer: torch.ones_like(data[layer]) for layer in self.layers}
+
+
+@pytest.fixture
+def two_layer_descriptor():
+    descriptor = Descriptor()
+    descriptor.add_layer("x")
+    descriptor.add_layer("y")
+    descriptor.add_tag("x", "x", 0)
+    descriptor.add_tag("y", "y", 0)
+    return descriptor
+
+
+def make_engine(constraints, descriptor, device, aggregator):
+    return ConstraintEngine(
+        constraints=constraints,
+        descriptor=descriptor,
+        metric_manager=None,
+        device=device,
+        epsilon=1e-6,
+        aggregator=aggregator,
+        enforce_all=True,
+    )
+
+
+def test_rescale_factor_computed_once_per_constraint(
+    two_layer_descriptor, device, aggregator, monkeypatch
+):
+    MultiLayerConstraint.descriptor = two_layer_descriptor
+    MultiLayerConstraint.device = device
+    constraint = MultiLayerConstraint(tags={"x", "y"})
+    assert constraint.layers == {"x", "y"}
+
+    spy = MagicMock(side_effect=constraint.compute_rescale_factor)
+    monkeypatch.setattr(constraint, "compute_rescale_factor", spy)
+
+    engine = make_engine([constraint], two_layer_descriptor, device, aggregator)
+
+    x = torch.tensor([[1.0], [2.0]], requires_grad=True)
+    y = torch.tensor([[3.0], [4.0]], requires_grad=True)
+    loss = (x**2).mean() + (y**2).mean()
+
+    out = engine.train({"x": x, "y": y}, loss)
+
+    spy.assert_called_once()
+    assert out.item() != pytest.approx(loss.item())
+
+
+def test_multidim_layer_broadcasts_loss_gradient_norm(device, aggregator):
+    descriptor = Descriptor()
+    descriptor.add_layer("img")
+    descriptor.add_tag("img", "img")
+
+    class ImageConstraint(DummyConstraint):
+        def __init__(self):
+            Constraint.__init__(self, tags={"img"}, name="img", rescale_factor=2.0)
+
+        def check_constraint(self, data):
+            checks = torch.tensor([1.0, 0.0]).view(2, 1, 1)
+            return checks, torch.ones_like(checks)
+
+        def calculate_direction(self, data):
+            return {"img": torch.ones_like(data["img"])}
+
+    ImageConstraint.descriptor = descriptor
+    ImageConstraint.device = device
+    engine = make_engine([ImageConstraint()], descriptor, device, aggregator)
+
+    img = torch.arange(24, dtype=torch.float32).view(2, 3, 4).requires_grad_()
+    loss = (img**2).mean()
+
+    out = engine.train({"img": img}, loss)
+
+    # Only the violated second sample contributes: sum(img[1]) * rescale * ||dL/dimg[1]||
+    grad_norm = (2 * img[1] / img.numel()).norm()
+    expected = loss + img[1].sum() * 2.0 * grad_norm
+    assert out.item() == pytest.approx(expected.item(), rel=1e-5)
+
+
+# -------------------------
+# gradients_from Handling
+# -------------------------
+
+
+class ColumnConstraint(DummyConstraint):
+    """Constraint on a single [B, 1] layer: first sample satisfied, second violated."""
+
+    def __init__(self, tag):
+        Constraint.__init__(self, tags={tag}, name=tag, rescale_factor=2.0)
+        self.tag = tag
+
+    def check_constraint(self, data):
+        checks = torch.tensor([[1.0], [0.0]])
+        return checks, torch.ones_like(checks)
+
+    def calculate_direction(self, data):
+        return {self.tag: torch.ones_like(data[self.tag])}
+
+
+@pytest.fixture
+def gradients_from_descriptor():
+    descriptor = Descriptor()
+    descriptor.add_layer("h")
+    descriptor.add_layer("y", affects_loss=False, gradients_from="h")
+    descriptor.add_tag("h", "h", 0)
+    descriptor.add_tag("y", "y", 0)
+    return descriptor
+
+
+@pytest.fixture
+def gradients_from_data():
+    h = torch.tensor([[1.0], [2.0]], requires_grad=True)
+    return {"h": h, "y": 2 * h}
+
+
+def test_gradients_from_corrects_direction_norm(
+    gradients_from_descriptor, gradients_from_data, device, aggregator, monkeypatch
+):
+    ColumnConstraint.descriptor = gradients_from_descriptor
+    ColumnConstraint.device = device
+    constraint = ColumnConstraint("y")
+
+    engine = make_engine([constraint], gradients_from_descriptor, device, aggregator)
+    spy = MagicMock(side_effect=engine._correct_direction_norm)
+    monkeypatch.setattr(engine, "_correct_direction_norm", spy)
+
+    data = gradients_from_data
+    loss = (data["h"] ** 2).mean()
+    out = engine.train(data, loss)
+
+    spy.assert_called_once()
+    assert spy.call_args.kwargs["output_layer"] == "y"
+    assert spy.call_args.kwargs["gradient_layer"] == "h"
+    assert out.requires_grad
+
+    # Second sample is violated: y=4, corrected direction=1/2, rescale=2, ||dL/dh||=|h|=2
+    assert out.item() == pytest.approx(loss.item() + 4.0 * 0.5 * 2.0 * 2.0)
+
+
+def test_direction_not_corrected_without_gradients_from(engine, data, loss, monkeypatch):
+    spy = MagicMock(side_effect=engine._correct_direction_norm)
+    monkeypatch.setattr(engine, "_correct_direction_norm", spy)
+
+    engine.train(data, loss)
+
+    spy.assert_not_called()
+
+
+def test_correct_direction_norm_value(engine, gradients_from_data):
+    direction = torch.ones(2, 1)
+
+    corrected = engine._correct_direction_norm(
+        direction, output_layer="y", gradient_layer="h", data=gradients_from_data
+    )
+
+    # d(sum(direction * 2h))/dh = 2 -> norm 2 -> corrected direction 0.5
+    assert torch.allclose(corrected, torch.full((2, 1), 0.5))
+
+
+def test_correct_direction_norm_zero_gradient_uses_epsilon(engine):
+    h = torch.tensor([[1.0], [2.0]], requires_grad=True)
+    data = {"h": h, "y": h * 0.0}
+    direction = torch.ones(2, 1)
+
+    corrected = engine._correct_direction_norm(
+        direction, output_layer="y", gradient_layer="h", data=data, epsilon=1e-4
+    )
+
+    assert torch.isfinite(corrected).all()
+    assert torch.allclose(corrected, torch.full((2, 1), 1e4))
+
+
+def test_error_if_no_loss_gradients_for_layer(device, aggregator):
+    descriptor = Descriptor()
+    descriptor.add_layer("h")
+    descriptor.add_layer("y", affects_loss=False)
+    descriptor.add_tag("y", "y", 0)
+
+    ColumnConstraint.descriptor = descriptor
+    ColumnConstraint.device = device
+    constraint = ColumnConstraint("y")
+
+    engine = make_engine([constraint], descriptor, device, aggregator)
+
+    h = torch.tensor([[1.0], [2.0]], requires_grad=True)
+    data = {"h": h, "y": 2 * h}
+    loss = (h**2).mean()
+
+    with pytest.raises(RuntimeError, match="Cannot get gradients for layer 'y'"):
+        engine.train(data, loss)

@@ -9,7 +9,8 @@ Responsibilities:
 from collections.abc import Callable
 
 import torch
-from torch import Tensor, no_grad
+from torch import Tensor, no_grad, where
+from torch.autograd import grad
 from torch.linalg import vector_norm
 
 from ..constraints.base import Constraint
@@ -129,37 +130,42 @@ class ConstraintEngine:
             if enforce is False or not in training phase).
         """
         total_rescale_loss = torch.tensor(0.0, device=self.device, dtype=loss.dtype)
+        do_enforce = enforce and self.enforce_all and phase == "train"
 
-        if phase == "train":
+        # Precalculate loss gradients for variable layers that affect the loss
+        if do_enforce:
             norm_loss_grad = self._calculate_loss_gradients(loss, data)
             norm_loss_grad = self._override_loss_gradients(norm_loss_grad, loss, data)
 
         # Iterate constraints
         for constraint in self.constraints:
-            checks, mask = constraint.check_constraint(data)
-            directions = constraint.calculate_direction(data)
+            with no_grad():
+                # Compute constraint satisfaction checks and mask
+                checks, mask = constraint.check_constraint(data)
 
-            # Log CSR
-            csr = (torch.sum(checks * mask) / torch.sum(mask).clamp_min(1)).unsqueeze(0)
-            if self.metric_manager is not None:
-                self.metric_manager.accumulate(f"{constraint.name}/{phase}", csr)
-                self.metric_manager.accumulate(f"CSR/{phase}", csr)
+                # Log CSR
+                csr = (torch.sum(checks * mask) / torch.sum(mask).clamp_min(1)).unsqueeze(0)
+                if self.metric_manager is not None:
+                    self.metric_manager.accumulate(f"{constraint.name}/{phase}", csr)
+                    self.metric_manager.accumulate(f"CSR/{phase}", csr)
 
             # Skip adjustment if not enforcing
-            if not enforce or not constraint.enforce or not self.enforce_all or phase != "train":
+            if not (do_enforce and constraint.enforce):
                 continue
+
+            with no_grad():
+                # Compute directions and rescale factors for the constraint
+                directions = constraint.calculate_direction(data)
+                rescale_factor = constraint.compute_rescale_factor(
+                    data, checks, mask, directions, loss
+                )
 
             # Compute constraint-based rescale loss
             for key in constraint.layers & self.descriptor.variable_layers:
-                with no_grad():
-                    rescale_factor = constraint.compute_rescale_factor(
-                        data, checks, mask, directions, loss
-                    )
-                    rescale = (1 - checks) * directions[key] * rescale_factor
-
                 # Determine which gradients to use based on the descriptor
                 gradients_layer = self.descriptor.get_layer(key).gradients_from or key
 
+                # Check if gradients_layer has loss gradients computed
                 if gradients_layer not in norm_loss_grad:
                     raise RuntimeError(
                         f"Cannot get gradients for layer '{key}': "
@@ -167,12 +173,25 @@ class ConstraintEngine:
                         "Ensure this layer has affects_loss=True in the Descriptor."
                     )
 
-                grad = norm_loss_grad[gradients_layer]
+                # If other layer is used for gradients, correct direction norms accordingly
+                direction = directions[key]
+                if gradients_layer != key:
+                    direction = self._correct_direction_norm(
+                        directions[key],
+                        output_layer=key,
+                        gradient_layer=gradients_layer,
+                        data=data,
+                    )
 
-                extra_dims = data[key].ndim - grad.ndim
-                grad = grad.reshape(*grad.shape, *([1] * extra_dims))
+                with no_grad():
+                    # Compute the rescale contribution
+                    rescale = (1 - checks) * direction * rescale_factor
 
-                total_rescale_loss += self.aggregator(data[key] * rescale * grad)
+                    # Reshape per-sample gradient norms [B, 1] to [B, 1, ..., 1] to broadcast over data[key]
+                    loss_grad_norm = norm_loss_grad[gradients_layer]
+                    loss_grad_norm = loss_grad_norm.view(-1, *[1] * (data[key].ndim - 1))
+
+                total_rescale_loss += self.aggregator(data[key] * rescale * loss_grad_norm)
 
         return loss + total_rescale_loss
 
@@ -229,3 +248,53 @@ class ConstraintEngine:
             A dictionary of modified normalized gradients.
         """
         return norm_loss_grad
+
+    def _correct_direction_norm(
+        self,
+        direction: Tensor,
+        output_layer: str,
+        gradient_layer: str,
+        data: dict[str, Tensor],
+        epsilon: float = 1e-8,
+    ) -> Tensor:
+        """Corrects the norm of the constraint direction based on gradients from a different layer.
+
+        When the loss is not directly affected by the current output layer, gradients for CGGD
+        cannot be calculated and the user will have to specify a different layer to compute the
+        gradients from using the `gradients_from` attribute. To compensate for the difference in
+        gradient norms between the current output layer and the specified gradient layer, a
+        correction is applied to the constraint direction.
+
+        Args:
+            direction: Tensor representing the constraint direction for the output layer.
+            output_layer: Name of the layer where the constraint is applied.
+            gradient_layer: Name of the layer from which gradients are computed.
+            data: Dictionary containing the batch data used to compute the loss and any
+                constraint-related signals.
+            epsilon: Small positive value to avoid division by zero in gradient norms.
+
+        Returns:
+            Tensor: The corrected constraint direction with normalized gradients.
+
+        Note:
+            In case the calculated correction norm is zero, a small epsilon is added to
+            avoid division by zero, ensuring numerical stability.
+        """
+        # Extract data
+        output_activations = data[output_layer]
+        common_activations = data[gradient_layer]
+
+        # Calculate gradients of constraint in the target layer
+        direction_grad = grad(
+            (direction * output_activations).sum(), common_activations, retain_graph=True
+        )[0]
+
+        # Calculate norm of the gradients
+        direction_grad_reshaped = direction_grad.flatten(start_dim=1)
+        direction_norm = vector_norm(direction_grad_reshaped, ord=2, dim=-1, keepdim=True)
+
+        # Avoid division by zero by adding epsilon
+        direction_norm = where(direction_norm == 0, direction_norm + epsilon, direction_norm)
+
+        # Return the corrected direction
+        return direction / direction_norm

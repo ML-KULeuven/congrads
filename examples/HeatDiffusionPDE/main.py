@@ -14,7 +14,6 @@ from congrads.callbacks.registry import LoggerCallback
 from congrads.constraints.base import Constraint
 from congrads.constraints.registry import (
     ImplicationConstraint,
-    PDEConstraint,
     ScalarConstraint,
 )
 from congrads.core.congradscore import CongradsCore
@@ -81,9 +80,8 @@ def main():
     constraints = [
         ImplicationConstraint(
             head=ScalarConstraint("x", "<=", 0),
-            body=PDEConstraint(
-                layer_base="final_layer",
-                tag_residual="bc_residual",
+            body=ScalarConstraint(
+                operand="bc_residual",
                 comparator="<",
                 scalar=0.001,
                 rescale_factor=2.0,
@@ -91,9 +89,8 @@ def main():
         ),
         ImplicationConstraint(
             head=ScalarConstraint("x", ">=", 1),
-            body=PDEConstraint(
-                layer_base="final_layer",
-                tag_residual="bc_residual",
+            body=ScalarConstraint(
+                operand="bc_residual",
                 comparator="<",
                 scalar=0.001,
                 rescale_factor=2.0,
@@ -101,17 +98,15 @@ def main():
         ),
         ImplicationConstraint(
             head=ScalarConstraint("t", "<=", 0),
-            body=PDEConstraint(
-                layer_base="final_layer",
-                tag_residual="ic_residual",
+            body=ScalarConstraint(
+                operand="ic_residual",
                 comparator="<",
                 scalar=0.001,
                 rescale_factor=2.0,
             ),
         ),
-        PDEConstraint(
-            layer_base="final_layer",
-            tag_residual="col_residual",
+        ScalarConstraint(
+            operand="col_residual",
             comparator="<",
             scalar=0.001,
             rescale_factor=1.5,
@@ -122,8 +117,8 @@ def main():
     metric_manager = MetricManager()
 
     # Initialize data loggers
-    tensorboard_logger = SummaryWriter(log_dir="logs/SimpleMonotonicity")
-    csv_logger = CSVLogger("logs/SimpleMonotonicity.csv")
+    tensorboard_logger = SummaryWriter(log_dir="logs/HeatDiffusionPDE")
+    csv_logger = CSVLogger("logs/HeatDiffusionPDE.csv")
     logger_callback = LoggerCallback(
         metric_manager=metric_manager, tensorboard_logger=tensorboard_logger, csv_logger=csv_logger
     )
