@@ -70,7 +70,7 @@ class Constraint(ABC):
     def __init__(
         self,
         tags: set[str],
-        name: str = None,
+        name: str | None = None,
         enforce: bool = True,
         rescale_factor: Number | RescaleStrategy = 1.5,
     ) -> None:
@@ -274,7 +274,7 @@ class MonotonicityConstraint(Constraint, ABC):
         rescale_factor_upper: float = 1.75,
         stable: bool = True,
         direction: Literal["ascending", "descending"] = "ascending",
-        name: str = None,
+        name: str | None = None,
         enforce: bool = True,
     ):
         """Constraint that enforces monotonicity on a predicted output.

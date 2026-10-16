@@ -46,7 +46,7 @@ def test_add_layer_constant(descriptor):
 
 def test_add_duplicate_layer_raises(descriptor):
     descriptor.add_layer("layer1")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="already exists"):
         descriptor.add_layer("layer1")
 
 
@@ -87,7 +87,7 @@ def test_add_tag_multiple_indices(descriptor):
 
 
 def test_add_tag_unknown_layer_raises(descriptor):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="is not registered"):
         descriptor.add_tag("tag1", "unknown_layer", index=0)
 
 
@@ -95,7 +95,7 @@ def test_add_duplicate_tag_raises(descriptor):
     descriptor.add_layer("layer1")
     descriptor.add_tag("tag1", "layer1", index=0)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="already exists"):
         descriptor.add_tag("tag1", "layer1", index=1)
 
 
@@ -103,7 +103,7 @@ def test_duplicate_index_same_layer_warns(descriptor):
     descriptor.add_layer("layer1")
     descriptor.add_tag("tag1", "layer1", index=0)
 
-    with pytest.warns(UserWarning):
+    with pytest.warns(UserWarning, match="is already assigned to tag"):
         descriptor.add_tag("tag2", "layer1", index=0)
 
 

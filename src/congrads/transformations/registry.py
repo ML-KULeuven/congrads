@@ -8,7 +8,7 @@ from torch import Tensor
 from ..utils.validation import validate_callable, validate_type
 from .base import Transformation
 
-__all__ = ["IdentityTransformation", "DenormalizeMinMax", "ApplyOperator"]
+__all__ = ["ApplyOperator", "DenormalizeMinMax", "IdentityTransformation"]
 
 
 class IdentityTransformation(Transformation):

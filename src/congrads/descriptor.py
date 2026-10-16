@@ -167,9 +167,8 @@ class Descriptor:
         if tag in self._tags:
             raise ValueError(f"Tag '{tag}' already exists.")
 
-        if index is not None and not isinstance(index, int):
-            if len(set(index)) != len(index):
-                raise ValueError(f"Duplicate indices in tag '{tag}'.")
+        if index is not None and not isinstance(index, int) and len(set(index)) != len(index):
+            raise ValueError(f"Duplicate indices in tag '{tag}'.")
 
         for existing_name, existing_tag in self._tags.items():
             if existing_tag.layer == layer and existing_tag.index == index:

@@ -15,12 +15,12 @@ from torch.utils.data import DataLoader, Dataset, random_split
 
 __all__ = [
     "CSVLogger",
-    "split_data_loaders",
-    "ZeroLoss",
-    "LossWrapper",
-    "process_data_monotonicity_constraint",
     "DictDatasetWrapper",
+    "LossWrapper",
     "Seeder",
+    "ZeroLoss",
+    "process_data_monotonicity_constraint",
+    "split_data_loaders",
 ]
 
 
@@ -144,10 +144,10 @@ class CSVLogger:
 
 def split_data_loaders(
     data: Dataset,
-    loader_args: dict = None,
-    train_loader_args: dict = None,
-    valid_loader_args: dict = None,
-    test_loader_args: dict = None,
+    loader_args: dict | None = None,
+    train_loader_args: dict | None = None,
+    valid_loader_args: dict | None = None,
+    test_loader_args: dict | None = None,
     train_size: float = 0.8,
     valid_size: float = 0.1,
     test_size: float = 0.1,
@@ -278,10 +278,7 @@ class LossWrapper:
             ``False`` otherwise.
         """
         # For nn.Module, inspect forward(), not __call__()
-        if isinstance(self.loss_fn, nn.Module):
-            fn = self.loss_fn.forward
-        else:
-            fn = self.loss_fn
+        fn = self.loss_fn.forward if isinstance(self.loss_fn, nn.Module) else self.loss_fn
 
         sig = inspect.signature(fn)
 
@@ -507,7 +504,7 @@ class Seeder:
 
         """
         random.seed(self.roll_seed())
-        np.random.seed(self.roll_seed())
+        np.random.seed(self.roll_seed())  # noqa: NPY002 - seeds global state on purpose
         torch.manual_seed(self.roll_seed())
         torch.cuda.manual_seed_all(self.roll_seed())
 

@@ -73,7 +73,7 @@ def test_nested_chaining(dummy_batch):
 
 def test_invalid_base_type():
     """Passing a non-number/non-strategy as base should raise ValueError."""
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Base must be a number"):
         ImplicationBalancedStrategy(base="invalid")
 
 

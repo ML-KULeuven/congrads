@@ -127,5 +127,5 @@ def test_reset_all(metric_manager):
 
 
 def test_accumulate_unregistered_metric_raises(metric_manager):
-    with pytest.raises(KeyError, match="Metric 'unknown' is not registered."):
+    with pytest.raises(KeyError, match=r"Metric 'unknown' is not registered\."):
         metric_manager.accumulate("unknown", torch.tensor([1.0]))

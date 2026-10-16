@@ -12,7 +12,7 @@ normalization, feature engineering, constraint filtering, and sampling.
 import numpy as np
 import pandas as pd
 
-__all__ = ["preprocess_BiasCorrection", "preprocess_FamilyIncome", "preprocess_AdultCensusIncome"]
+__all__ = ["preprocess_AdultCensusIncome", "preprocess_BiasCorrection", "preprocess_FamilyIncome"]
 
 
 def preprocess_BiasCorrection(df: pd.DataFrame) -> pd.DataFrame:  # noqa: N802
@@ -383,7 +383,7 @@ def preprocess_AdultCensusIncome(df: pd.DataFrame) -> pd.DataFrame:  # noqa: N80
     def drop_columns(df: pd.DataFrame) -> pd.DataFrame:
         return df.drop(columns=["fnlwgt", "education.num"], errors="ignore")
 
-    def label_encode_column(series: pd.Series, col_name: str = None) -> pd.Series:
+    def label_encode_column(series: pd.Series, col_name: str | None = None) -> pd.Series:
         """Encode a pandas Series of categorical strings into integers."""
         categories = series.dropna().unique().tolist()
         cat_to_int = {cat: i for i, cat in enumerate(categories)}

@@ -121,7 +121,7 @@ def test_constraints_calculate_direction(constraint_cls, mock_data):
         pytest.skip(f"No default constructor for {constraint_cls.__name__}, skipping test.")
 
     constraint = constraint_defaults[constraint_cls.__name__]()
-    result, _ = constraint.check_constraint(mock_data)  # ensure directions are computed
+    _result, _ = constraint.check_constraint(mock_data)  # ensure directions are computed
     directions = constraint.calculate_direction(mock_data)
 
     assert isinstance(directions, dict)
@@ -141,11 +141,11 @@ def test_implication_constraint_logic(mock_data):
     scalar = registry.ScalarConstraint("a", "<", 1.0)
     binary = registry.BinaryConstraint("a", "<", "b")
     implication = registry.ImplicationConstraint(scalar, binary)
-    result, head_satisfaction = implication.check_constraint(mock_data)
+    result, _head_satisfaction = implication.check_constraint(mock_data)
     assert torch.all((result == 1) | (result == 0))
 
 
 def test_sum_constraint_weight_mismatch():
     # Should raise ValueError if weights don't match number of tags
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="dimensions of tags_left"):
         registry.SumConstraint(["a", "b"], "<", ["c", "d"], weights_left=[1.0])

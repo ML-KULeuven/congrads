@@ -3,11 +3,29 @@ name = "congrads"
 version = "0.4.5"
 description = "A toolbox for using Constraint Guided Gradient Descent when training neural networks."
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 authors = [
     { name = "Wout Rombouts", email = "wout.rombouts@kuleuven.be" },
     { name = "Quinten Van Baelen", email = "quinten.vanbaelen@kuleuven.be" },
     { name = "Peter Karsmakers", email = "peter.karsmakers@kuleuven.be" }
+]
+keywords = [
+    "constraint-guided gradient descent",
+    "constrained optimization",
+    "deep learning",
+    "neural networks",
+    "pytorch",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 requires-python = ">=3.11"
 dependencies = [
@@ -18,51 +36,70 @@ dependencies = [
     "tqdm>=4.65.0",
 ]
 
+[project.urls]
+Repository = "https://github.com/ML-KULeuven/congrads"
+Documentation = "https://congrads.readthedocs.io/en/latest/"
+
 [project.optional-dependencies]
 examples = [
     "matplotlib>=3.7.0",
     "tensorboard>=2.18.0",
 ]
+cpu = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.1",
+]
+gpu = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.1",
+]
 
 [build-system]
-requires = ["uv_build>=0.8.13,<0.9.0"]
+requires = ["uv_build>=0.11,<0.12"]
 build-backend = "uv_build"
 
 [dependency-groups]
-dev = [
-    "myst-nb>=1.3.0",
+test = [
     "pytest>=8.4.2",
     "pytest-cov>=7.0.0",
-    "ruff>=0.13.0",
+]
+docs = [
+    "myst-nb>=1.3.0",
     "sphinx>=8.2.3",
     "sphinx-gallery>=0.20.0",
     "sphinx-rtd-theme>=3.0.2",
-    "twine>=6.2.0",
 ]
+lint = [
+    "ruff>=0.13.0",
+]
+
+[tool.uv]
+default-groups = ["test", "docs", "lint"]
+conflicts = [
+    [{ extra = "cpu" }, { extra = "gpu" }],
+]
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", extra = "cpu" }]
+torchvision = [{ index = "pytorch-cpu", extra = "cpu" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers"
 
 [tool.ruff]
-# Match Black-style defaults but with a longer line length
 line-length = 100
-indent-width = 4
-target-version = "py311"  # or "py312" if needed
-
-# Where Ruff runs (exclude cache, venvs, build dirs, etc.)
-exclude = [
-    ".git",
-    ".mypy_cache",
-    ".ruff_cache",
-    ".venv",
-    "venv",
-    "build",
-    "dist",
-    "__pypackages__",
-]
-
-# Which files to include
 include = ["pyproject.toml", "src/**/*.py", "tests/**/*.py"]
 
 [tool.ruff.lint]
-# Essentials + additional readability rules
 select = [
     "E",   # pycodestyle errors
     "F",   # pyflakes
@@ -73,23 +110,21 @@ select = [
     "ISC", # implicit string concatenation
     "D",   # docstring styling
     "N",   # consistent naming
+    "SIM", # simplifications
+    "RUF", # Ruff-specific checks
+    "PT",  # pytest style
+    "NPY", # deprecated NumPy APIs
 ]
 ignore = [
     "E501", # line length (handled by formatter)
 ]
 
-# Enable autofix for safe rules
-fixable = ["ALL"]
-
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D", "N"]
 
-[tool.ruff.format]
-quote-style = "double"               # enforce double quotes
-indent-style = "space"               # 4 spaces
-skip-magic-trailing-comma = false    # Black-compatible
-docstring-code-format = true
-docstring-code-line-length = "dynamic"
-
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = "dynamic"

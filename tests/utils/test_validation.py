@@ -35,7 +35,7 @@ def test_validate_iterable():
 
 
 def test_validate_comparator_pytorch():
-    for comparator in COMPARATOR_MAP.keys():
+    for comparator in COMPARATOR_MAP:
         validate_comparator("cmp", comparator, COMPARATOR_MAP)
     with pytest.raises(TypeError):
         validate_comparator("cmp", lambda x, y: x > y, COMPARATOR_MAP)

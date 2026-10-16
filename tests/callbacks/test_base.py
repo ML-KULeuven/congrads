@@ -159,7 +159,7 @@ def test_callback_manager_missing_stage_raises():
 
     mgr = CallbackManager([BadCallback()])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="has no handler for stage"):
         mgr.run("on_batch_start", {})
 
 

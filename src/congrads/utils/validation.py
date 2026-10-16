@@ -8,12 +8,12 @@ validation functions.
 from torch.utils.data import DataLoader
 
 __all__ = [
-    "validate_type",
-    "validate_iterable",
-    "validate_comparator",
     "validate_callable",
     "validate_callable_iterable",
+    "validate_comparator",
+    "validate_iterable",
     "validate_loaders",
+    "validate_type",
 ]
 
 
@@ -37,8 +37,8 @@ def validate_type(name, value, expected_types, allow_none=False):
 
     if not isinstance(value, expected_types):
         raise TypeError(
-            f"Argument {name} '{str(value)}' is not supported. "
-            f"Only values of type {str(expected_types)} are allowed."
+            f"Argument {name} '{value!s}' is not supported. "
+            f"Only values of type {expected_types!s} are allowed."
         )
 
 
@@ -74,8 +74,8 @@ def validate_iterable(
 
     if not isinstance(value, allowed_iterables):
         raise TypeError(
-            f"Argument {name} '{str(value)}' is not supported. "
-            f"Only values of type {str(allowed_iterables)} are allowed."
+            f"Argument {name} '{value!s}' is not supported. "
+            f"Only values of type {allowed_iterables!s} are allowed."
         )
 
     if len(value) == 0:
@@ -85,8 +85,8 @@ def validate_iterable(
 
     if not all(isinstance(element, expected_element_types) for element in value):
         raise TypeError(
-            f"Invalid elements in {name} '{str(value)}'. "
-            f"Only elements of type {str(expected_element_types)} are allowed."
+            f"Invalid elements in {name} '{value!s}'. "
+            f"Only elements of type {expected_element_types!s} are allowed."
         )
 
 
@@ -126,7 +126,7 @@ def validate_callable(name, value, allow_none=False):
 
     if not callable(value):
         raise TypeError(
-            f"Argument {name} '{str(value)}' is not supported. Only callable functions are allowed."
+            f"Argument {name} '{value!s}' is not supported. Only callable functions are allowed."
         )
 
 
@@ -160,13 +160,13 @@ def validate_callable_iterable(
 
     if not isinstance(value, allowed_iterables):
         raise TypeError(
-            f"Argument {name} '{str(value)}' is not supported. "
-            f"Only values of type {str(allowed_iterables)} are allowed."
+            f"Argument {name} '{value!s}' is not supported. "
+            f"Only values of type {allowed_iterables!s} are allowed."
         )
 
     if not all(callable(element) for element in value):
         raise TypeError(
-            f"Invalid elements in {name} '{str(value)}'. Only callable functions are allowed."
+            f"Invalid elements in {name} '{value!s}'. Only callable functions are allowed."
         )
 
 

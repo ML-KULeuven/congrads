@@ -57,16 +57,16 @@ from ..utils.validation import validate_comparator, validate_iterable, validate_
 from .base import Constraint, MonotonicityConstraint
 
 __all__ = [
-    "ImplicationConstraint",
-    "ScalarConstraint",
+    "ANDConstraint",
     "BinaryConstraint",
-    "SumConstraint",
-    "RankedMonotonicityConstraint",
+    "EncodedGroupedMonotonicityConstraint",
+    "ImplicationConstraint",
+    "ORConstraint",
     "PairwiseMonotonicityConstraint",
     "PerGroupMonotonicityConstraint",
-    "EncodedGroupedMonotonicityConstraint",
-    "ANDConstraint",
-    "ORConstraint",
+    "RankedMonotonicityConstraint",
+    "ScalarConstraint",
+    "SumConstraint",
 ]
 
 
@@ -90,7 +90,7 @@ class ImplicationConstraint(Constraint):
         self,
         head: Constraint,
         body: Constraint,
-        name: str = None,
+        name: str | None = None,
     ):
         """Initializes an ImplicationConstraint instance.
 
@@ -210,7 +210,7 @@ class ScalarConstraint(Constraint):
         operand: str | Transformation,
         comparator: Literal[">", "<", ">=", "<="],
         scalar: Number,
-        name: str = None,
+        name: str | None = None,
         enforce: bool = True,
         rescale_factor: Number | RescaleStrategy = 1.5,
     ) -> None:
@@ -253,7 +253,7 @@ class ScalarConstraint(Constraint):
             transformation = IdentityTransformation(tag)
 
         # Compose constraint name
-        name = f"{tag} {comparator} {str(scalar)}"
+        name = f"{tag} {comparator} {scalar!s}"
 
         # Init parent class
         super().__init__({tag}, name, enforce, rescale_factor)
@@ -356,7 +356,7 @@ class BinaryConstraint(Constraint):
         operand_left: str | Transformation,
         comparator: Literal[">", "<", ">=", "<="],
         operand_right: str | Transformation,
-        name: str = None,
+        name: str | None = None,
         enforce: bool = True,
         rescale_factor: Number | RescaleStrategy = 1.5,
     ) -> None:
@@ -502,9 +502,9 @@ class SumConstraint(Constraint):
         operands_left: list[str | Transformation],
         comparator: Literal[">", "<", ">=", "<="],
         operands_right: list[str | Transformation],
-        weights_left: list[Number] = None,
-        weights_right: list[Number] = None,
-        name: str = None,
+        weights_left: list[Number] | None = None,
+        weights_right: list[Number] | None = None,
+        name: str | None = None,
         enforce: bool = True,
         rescale_factor: Number | RescaleStrategy = 1.5,
     ) -> None:
@@ -711,7 +711,7 @@ class RankedMonotonicityConstraint(MonotonicityConstraint):
         rescale_factor_upper: float = 1.75,
         stable: bool = True,
         direction: Literal["ascending", "descending"] = "ascending",
-        name: str = None,
+        name: str | None = None,
         enforce: bool = True,
     ):
         """Constraint that enforces monotonicity on a predicted output.
@@ -801,7 +801,7 @@ class PairwiseMonotonicityConstraint(MonotonicityConstraint):
         rescale_factor_upper: float = 1.75,
         stable: bool = True,
         direction: Literal["ascending", "descending"] = "ascending",
-        name: str = None,
+        name: str | None = None,
         enforce: bool = True,
     ):
         """Constraint that enforces monotonicity on a predicted output.
@@ -1052,7 +1052,7 @@ class ANDConstraint(Constraint):
     def __init__(
         self,
         *constraints: Constraint,
-        name: str = None,
+        name: str | None = None,
         enforce: bool = False,
         rescale_factor: Number | RescaleStrategy = 1.5,
     ) -> None:
@@ -1177,7 +1177,7 @@ class ORConstraint(Constraint):
     def __init__(
         self,
         *constraints: Constraint,
-        name: str = None,
+        name: str | None = None,
         enforce: bool = False,
         rescale_factor: Number | RescaleStrategy = 1.5,
     ) -> None:

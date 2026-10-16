@@ -13,9 +13,9 @@ from typing import Union
 from torch import Tensor
 
 __all__ = [
+    "ImplicationBalancedStrategy",
     "RescaleStrategy",
     "StaticStrategy",
-    "ImplicationBalancedStrategy",
 ]
 
 

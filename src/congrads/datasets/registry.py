@@ -21,6 +21,7 @@ import os
 import random
 from collections.abc import Callable
 from pathlib import Path
+from typing import ClassVar
 from urllib.error import URLError
 
 import numpy as np
@@ -34,12 +35,12 @@ from torchvision.datasets.utils import (
 )
 
 __all__ = [
-    "DownloadableCSVDataset",
     "BiasCorrection",
+    "DownloadableCSVDataset",
     "FamilyIncome",
     "SectionedGaussians",
-    "SyntheticMonotonicity",
     "SyntheticClusters",
+    "SyntheticMonotonicity",
 ]
 
 
@@ -61,8 +62,8 @@ class DownloadableCSVDataset(Dataset):
             or if all mirrors fail.
     """
 
-    mirrors: list[str] = []
-    resources: list[tuple[str, str]] = []
+    mirrors: ClassVar[list[str]] = []
+    resources: ClassVar[list[tuple[str, str]]] = []
     csv_filename: str = ""
 
     def __init__(self, root: str | Path, transform: Callable, download: bool = False) -> None:
@@ -150,7 +151,7 @@ class DownloadableCSVDataset(Dataset):
             else:
                 s = f"Error downloading {filename}:\n"
                 for mirror, err in zip(self.mirrors, errors, strict=False):
-                    s += f"Tried {mirror}, got:\n{str(err)}\n"
+                    s += f"Tried {mirror}, got:\n{err!s}\n"
                 raise RuntimeError(s)
 
 
@@ -163,8 +164,8 @@ class BiasCorrection(DownloadableCSVDataset):
         download (bool, optional): Whether to download if not present. Defaults to False.
     """
 
-    mirrors = ["https://archive.ics.uci.edu/static/public/514/"]
-    resources = [
+    mirrors: ClassVar[list[str]] = ["https://archive.ics.uci.edu/static/public/514/"]
+    resources: ClassVar[list[tuple[str, str]]] = [
         (
             "bias+correction+of+numerical+prediction+model+temperature+forecast.zip",
             "3deee56d461a2686887c4ae38fe3ccf3",
@@ -182,10 +183,10 @@ class FamilyIncome(DownloadableCSVDataset):
         download (bool, optional): Whether to download if not present. Defaults to False.
     """
 
-    mirrors = [
+    mirrors: ClassVar[list[str]] = [
         "https://www.kaggle.com/api/v1/datasets/download/grosvenpaul/family-income-and-expenditure"
     ]
-    resources = [
+    resources: ClassVar[list[tuple[str, str]]] = [
         (
             "archive.zip",
             "7d74bc7facc3d7c07c4df1c1c6ac563e",
@@ -222,7 +223,7 @@ class FamilyIncome(DownloadableCSVDataset):
             else:
                 s = f"Error downloading {filename}:\n"
                 for mirror, err in zip(self.mirrors, errors, strict=False):
-                    s += f"Tried {mirror}, got:\n{str(err)}\n"
+                    s += f"Tried {mirror}, got:\n{err!s}\n"
                 raise RuntimeError(s)
 
 
@@ -406,7 +407,7 @@ class SectionedGaussians(Dataset):
         n_section_samples_list = []
         residual = 0.0
         for exact in exact_counts[:-1]:
-            n = int(round(exact + residual))
+            n = round(exact + residual)
             n_section_samples_list.append(n)
             residual += exact - n  # carry over rounding error
 
@@ -422,7 +423,7 @@ class SectionedGaussians(Dataset):
             # Samples proportional to section length
             n_section_samples = n_section_samples_list[i]
 
-            # Determine next section’s parameters for blending
+            # Determine next section's parameters for blending
             if i < len(sections) - 1:
                 next_mean = sections[i + 1]["mean"]
                 next_std = sections[i + 1]["std"]
@@ -561,14 +562,13 @@ class SyntheticMonotonicity(Dataset):
         seed (int or None): random seed
         """
         super().__init__()
-        if seed is not None:
-            np.random.seed(seed)
+        rng = np.random.default_rng(seed)
 
         self.n_samples = n_samples
         self.x_range = x_range
 
         # Sample inputs
-        self.x = np.random.rand(n_samples) * (x_range[1] - x_range[0]) + x_range[0]
+        self.x = rng.random(n_samples) * (x_range[1] - x_range[0]) + x_range[0]
         self.x = np.sort(self.x)
 
         # Heteroscedastic noise (logistic growth with x)
@@ -577,11 +577,11 @@ class SyntheticMonotonicity(Dataset):
         )
 
         # Oscillatory perturbation (applied with probability osc_prob)
-        mask = (np.random.rand(n_samples) < osc_prob).astype(float)
+        mask = (rng.random(n_samples) < osc_prob).astype(float)
         osc = mask * (osc_amplitude * np.sin(osc_frequency * self.x))
 
         # Final observed target
-        self.y = np.log1p(self.x) + osc + noise_sigma * np.random.randn(n_samples)
+        self.y = np.log1p(self.x) + osc + noise_sigma * rng.standard_normal(n_samples)
 
         # Convert to tensors
         self.inputs = torch.tensor(self.x, dtype=torch.float32).unsqueeze(1)
