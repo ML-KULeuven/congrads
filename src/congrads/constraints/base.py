@@ -22,7 +22,9 @@ from abc import ABC, abstractmethod
 from numbers import Number
 from typing import Literal
 
-from torch import Tensor
+from torch import Tensor, where
+from torch.autograd import grad
+from torch.linalg import vector_norm
 
 from ..descriptor import Descriptor
 from ..utils.validation import validate_iterable, validate_type
@@ -204,6 +206,57 @@ class Constraint(ABC):
             return self.rescale_factor.compute(data, checks, mask, directions, loss)
 
         return self.rescale_factor
+
+    def correct_direction_norm(
+        self,
+        direction: Tensor,
+        output_layer: str,
+        gradient_layer: str,
+        data: dict[str, Tensor],
+        epsilon: float = 1e-8,
+    ) -> Tensor:
+        """Corrects the norm of the constraint direction based on gradients from a different layer.
+
+        When the loss is not directly affected by the current output layer, gradients for CGGD
+        cannot be calculated and the user will have to specify a different layer to compute the
+        gradients from using the `gradients_from` attribute. To compensate for the difference in
+        gradient norms between the current output layer and the specified gradient layer, a
+        correction is applied to the constraint direction.
+
+        Args:
+            direction: Tensor representing the constraint direction for the output layer.
+            output_layer: Name of the layer where the constraint is applied.
+            gradient_layer: Name of the layer from which gradients are computed.
+            data: Dictionary containing the batch data used to compute the loss and any
+                constraint-related signals.
+            epsilon: Small positive value to avoid division by zero in gradient norms.
+
+        Returns:
+            Tensor: The corrected constraint direction with normalized gradients.
+
+        Note:
+            - Only works for flattened spaces.
+            - In case the calculated correction norm is zero, a small epsilon is added to
+            avoid division by zero, ensuring numerical stability.
+        """
+        # Extract data
+        output_activations = data[output_layer]
+        common_activations = data[gradient_layer]
+
+        # Calculate gradients of constraint in the target layer
+        direction_grad = grad(
+            (direction * output_activations).sum(), common_activations, retain_graph=True
+        )[0]
+
+        # Calculate norm of the gradients
+        direction_grad_reshaped = direction_grad.flatten(start_dim=1)
+        direction_norm = vector_norm(direction_grad_reshaped, ord=2, dim=-1, keepdim=True)
+
+        # Avoid division by zero by adding epsilon
+        direction_norm = where(direction_norm == 0, direction_norm + epsilon, direction_norm)
+
+        # Return the corrected direction
+        return direction / direction_norm
 
 
 class MonotonicityConstraint(Constraint, ABC):

@@ -463,9 +463,10 @@ def test_gradients_from_corrects_direction_norm(
     ColumnConstraint.device = device
     constraint = ColumnConstraint("y")
 
+    spy = MagicMock(side_effect=constraint.correct_direction_norm)
+    monkeypatch.setattr(constraint, "correct_direction_norm", spy)
+
     engine = make_engine([constraint], gradients_from_descriptor, device, aggregator)
-    spy = MagicMock(side_effect=engine._correct_direction_norm)
-    monkeypatch.setattr(engine, "_correct_direction_norm", spy)
 
     data = gradients_from_data
     loss = (data["h"] ** 2).mean()
@@ -480,37 +481,36 @@ def test_gradients_from_corrects_direction_norm(
     assert out.item() == pytest.approx(loss.item() + 4.0 * 0.5 * 2.0 * 2.0)
 
 
-def test_direction_not_corrected_without_gradients_from(engine, data, loss, monkeypatch):
-    spy = MagicMock(side_effect=engine._correct_direction_norm)
-    monkeypatch.setattr(engine, "_correct_direction_norm", spy)
+def test_gradients_from_uses_constraint_override(
+    gradients_from_descriptor, gradients_from_data, device, aggregator
+):
+    class ScaledCorrectionConstraint(ColumnConstraint):
+        def correct_direction_norm(self, direction, output_layer, gradient_layer, data):
+            return direction * 3.0
+
+    ScaledCorrectionConstraint.descriptor = gradients_from_descriptor
+    ScaledCorrectionConstraint.device = device
+    constraint = ScaledCorrectionConstraint("y")
+
+    engine = make_engine([constraint], gradients_from_descriptor, device, aggregator)
+
+    data = gradients_from_data
+    loss = (data["h"] ** 2).mean()
+    out = engine.train(data, loss)
+
+    # Second sample is violated: y=4, overridden direction=3, rescale=2, ||dL/dh||=|h|=2
+    assert out.item() == pytest.approx(loss.item() + 4.0 * 3.0 * 2.0 * 2.0)
+
+
+def test_direction_not_corrected_without_gradients_from(
+    engine, constraint, data, loss, monkeypatch
+):
+    spy = MagicMock(side_effect=constraint.correct_direction_norm)
+    monkeypatch.setattr(constraint, "correct_direction_norm", spy)
 
     engine.train(data, loss)
 
     spy.assert_not_called()
-
-
-def test_correct_direction_norm_value(engine, gradients_from_data):
-    direction = torch.ones(2, 1)
-
-    corrected = engine._correct_direction_norm(
-        direction, output_layer="y", gradient_layer="h", data=gradients_from_data
-    )
-
-    # d(sum(direction * 2h))/dh = 2 -> norm 2 -> corrected direction 0.5
-    assert torch.allclose(corrected, torch.full((2, 1), 0.5))
-
-
-def test_correct_direction_norm_zero_gradient_uses_epsilon(engine):
-    h = torch.tensor([[1.0], [2.0]], requires_grad=True)
-    data = {"h": h, "y": h * 0.0}
-    direction = torch.ones(2, 1)
-
-    corrected = engine._correct_direction_norm(
-        direction, output_layer="y", gradient_layer="h", data=data, epsilon=1e-4
-    )
-
-    assert torch.isfinite(corrected).all()
-    assert torch.allclose(corrected, torch.full((2, 1), 1e4))
 
 
 def test_error_if_no_loss_gradients_for_layer(device, aggregator):

@@ -171,6 +171,7 @@ The above code translates into the following:
 It is possible to implement your own custom constraints to allow for additional complexity in your network.
 A new constraint must extend the base ```Constraint``` class and implement the :meth:`check_constraint(...) <congrads.constraints.base.Constraint.check_constraint>` and :meth:`calculate_direction(...) <congrads.constraints.base.Constraint.calculate_direction>` methods.
 Please refer to the built in constraints for examples how to achieve this.
+Optionally, :meth:`compute_rescale_factor(...) <congrads.constraints.base.Constraint.compute_rescale_factor>` can be overridden for dynamic rescaling, and :meth:`correct_direction_norm(...) <congrads.constraints.base.Constraint.correct_direction_norm>` can be overridden to change how the direction is corrected when a layer takes its gradients from another layer through ``gradients_from``.
 
 MetricManager
 -------------
